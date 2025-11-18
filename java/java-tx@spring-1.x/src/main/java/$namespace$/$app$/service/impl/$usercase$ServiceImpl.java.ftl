@@ -18,6 +18,11 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#list paramObj.attributes as attr>
     ${modelbase4java.type_attribute(attr)} ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
 </#list>
+<#list paramObj.attributes as attr>
+  <#if !attr.constraint.nullable>
+    if 
+  </#if>
+</#list>
     return new ${java.nameType(usecase.name)}Result();
   }
   
