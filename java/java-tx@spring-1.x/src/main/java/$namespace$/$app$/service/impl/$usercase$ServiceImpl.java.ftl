@@ -20,7 +20,8 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 </#list>
 <#list paramObj.attributes as attr>
   <#if !attr.constraint.nullable>
-    if 
+    if (Strings.isBlank(${java.nameVariable(attr.name)})) {
+    }
   </#if>
 </#list>
     return new ${java.nameType(usecase.name)}Result();
