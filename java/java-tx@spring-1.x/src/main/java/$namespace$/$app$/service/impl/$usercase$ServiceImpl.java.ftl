@@ -26,7 +26,8 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     }
   </#if>
 </#list>
-    return new ${java.nameType(usecase.name)}Result();
+    ${java.nameType(usecase.name)}Result retVal = new ${java.nameType(usecase.name)}Result();
+    return retVal;
   }
   
 }
