@@ -1,3 +1,4 @@
+<#import "/$/modelbase.ftl" as modelbase />
 <#import "/$/modelbase4java.ftl" as modelbase4java />
 <#if license??>
 ${java.license(license)}
@@ -21,6 +22,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#list paramObj.attributes as attr>
   <#if !attr.constraint.nullable>
     if (Strings.isBlank(${java.nameVariable(attr.name)})) {
+      throw new ServiceException("${modelbase.get_attribute_label(attr)}是必要参数，不能为空值");
     }
   </#if>
 </#list>
