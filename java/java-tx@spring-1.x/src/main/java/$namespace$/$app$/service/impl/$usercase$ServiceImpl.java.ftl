@@ -26,6 +26,11 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     }
   </#if>
 </#list>
+<#if paramObj.isLabelled("unique")>
+  <#assign uniqueObjName = paramObj.getLabelledOption("unique", "object")>
+  <#assign uniqueAttrNames = paramObj.getLabelledOptionAsList("unique", "attribute")>
+    ${java.nameVariable(uniqueObjName)}Service.getUnique${java.nameType(uniqueObjName)}By<#list uniqueAttrNames as uan><#if uan?index != 0>And</#if>${java.nameType(uan)}</#list>(<#list uniqueAttrNames as uan><#if uan?index != 0>, </#if>${java.nameVariable(uan)}</#list>);
+</#if>
     ${java.nameType(usecase.name)}Result retVal = new ${java.nameType(usecase.name)}Result();
     return retVal;
   }
