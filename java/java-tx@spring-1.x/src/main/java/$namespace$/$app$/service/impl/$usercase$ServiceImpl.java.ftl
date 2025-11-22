@@ -65,7 +65,11 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   <#assign uniqueObj = model.findObjectByName(uniqueObjName)>
   <#assign uniqueObjIdAttr = modelbase.get_id_attributes(uniqueObj)?first>
   <#assign uniqueAttrNames = paramObj.getLabelledOptionAsList("unique", "attribute")>
-    ${java.nameType(uniqueObjName)}Query existing${java.nameType(uniqueObjName)} = ${java.nameVariable(uniqueObjName)}Service.findSingle${java.nameType(uniqueObjName)}By<#list uniqueAttrNames as uan><#if uan?index != 0>And</#if>${java.nameType(uan)}</#list>(<#list uniqueAttrNames as uan><#if uan?index != 0>, </#if>${java.nameVariable(uan)}</#list>);
+    ${java.nameType(uniqueObjName)}Query ${java.nameVariable(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
+  <#list uniqueAttrNames as attrname>
+    ${java.nameVariable(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});
+  </#list>  
+    ${java.nameType(uniqueObjName)}Query existing${java.nameType(uniqueObjName)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(${java.nameVariable(uniqueObjName)}Query);
     if (existing${java.nameType(uniqueObjName)} != null && 
         !existing${java.nameType(uniqueObjName)}.getId().equals(${modelbase.get_attribute_sql_name(uniqueObjIdAttr)})) {
       throw new ServiceException("${modelbase.get_object_label(uniqueObj)}已经存在，不能重复创建");
