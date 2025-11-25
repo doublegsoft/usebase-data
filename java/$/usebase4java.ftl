@@ -2,7 +2,9 @@
   <#if stmt.operator?ends_with("?|")>
 <@print_statement_comparison usecase=usecase stmt=stmt indent=indent />  
   <#elseif stmt.operator?ends_with("+|")>
-<@print_statement_save usecase=usecase stmt=stmt indent=indent />  
+<@print_statement_save usecase=usecase stmt=stmt indent=indent />
+  <#elseif stmt.operator?ends_with(":|")>
+<@print_statement_assign usecase=usecase stmt=stmt indent=indent />  
   </#if>
 </#macro>
 
@@ -31,4 +33,9 @@ ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameTy
 ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(saveObjName)}(${java.nameVariable(saveObjName)});
     </#if>
   </#if>
+</#macro>
+
+<#macro print_statement_assign usecase stmt indent>
+  <#local assign = stmt>
+${""?left_pad(indent)}${java.nameVarible(assign.assignee)} =  
 </#macro>
