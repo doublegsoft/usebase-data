@@ -37,5 +37,18 @@ ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameTy
 
 <#macro print_statement_assign usecase stmt indent>
   <#local assign = stmt>
-${""?left_pad(indent)}${java.nameVarible(assign.assignee)} =  
+  <#if assign.assignOp == "=">
+    <#if assign.value.invocation??>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${assign.value.invocation.method}();
+    <#elseif assign.value.objectValue??>
+      <#local uniqueObjName = assign.value.objectValue.getLabelledOption("unique", "object")>
+      <#local uniqueAttrNames = assign.value.objectValue.getLabelledOptionAsList("unique", "attribute")>
+${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query unique${java.nameType(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
+      <#list uniqueAttrNames as attrname>
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});
+      </#list>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query);     
+    </#if>
+  <#else>
+  </#if>
 </#macro>
