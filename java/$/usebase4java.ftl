@@ -41,13 +41,24 @@ ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameTy
     <#if assign.value.invocation??>
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${assign.value.invocation.method}();
     <#elseif assign.value.objectValue??>
-      <#local uniqueObjName = assign.value.objectValue.getLabelledOption("unique", "object")>
-      <#local uniqueAttrNames = assign.value.objectValue.getLabelledOptionAsList("unique", "attribute")>
+      <#local objVal = assign.value.objectValue>
+      <#local uniqueObjName = objVal.getLabelledOption("unique", "object")>
+      <#local uniqueAttrNames = objVal.getLabelledOptionAsList("unique", "attribute")>
 ${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query unique${java.nameType(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
       <#list uniqueAttrNames as attrname>
-${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});
+        <#local uniqueAttr = apiModel.findAttributeByNames(objVal.name, attrname)>
+        <#if uniqueAttr.alias??>
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(uniqueAttr.alias)}(${java.nameVariable(attrname)});
+        <#else>
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});        
+        </#if>
       </#list>
-${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query);     
+${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
+      <#if objVal.isLabelled("required")>    
+${""?left_pad(indent)}if (${java.nameVariable(assign.assignee)} == null) {
+${""?left_pad(indent)}  throw new ServiceException("${objVal.getLabelledOption("required", "message")}")
+${""?left_pad(indent)}}
+      </#if>
     </#if>
   <#else>
   </#if>
