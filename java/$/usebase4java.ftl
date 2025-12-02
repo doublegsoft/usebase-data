@@ -4,7 +4,11 @@
   <#elseif stmt.operator?ends_with("+|")>
 <@print_statement_save usecase=usecase stmt=stmt indent=indent />
   <#elseif stmt.operator?ends_with(":|")>
-<@print_statement_assign usecase=usecase stmt=stmt indent=indent />  
+<@print_statement_assignment usecase=usecase stmt=stmt indent=indent />  
+  <#elseif stmt.operator?ends_with("?|")>
+<@print_statement_comparison usecase=usecase stmt=stmt indent=indent />  
+  <#elseif stmt.operator?ends_with("@|")>
+<@print_statement_invocation usecase=usecase stmt=stmt indent=indent />    
   </#if>
 </#macro>
 
@@ -35,7 +39,7 @@ ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameTy
   </#if>
 </#macro>
 
-<#macro print_statement_assign usecase stmt indent>
+<#macro print_statement_assignment usecase stmt indent>
   <#local assign = stmt>
   <#if assign.assignOp == "=">
     <#if assign.value.invocation??>
@@ -62,4 +66,24 @@ ${""?left_pad(indent)}}
     </#if>
   <#else>
   </#if>
+</#macro>
+
+<#macro print_statement_comparison usecase stmt indent>
+  <#local cmp = stmt>
+  <#if cmp.value?? && cmp.value.invocation??>
+    <#local invo = cmp.value.invocation>
+    <#if invo.error??>
+      <#if cmp.comparator == '!='>
+${""?left_pad(indent)}String ${usebase.name_method_return(invo.method)} = ${java.nameVariable(invo.method)}();      
+${""?left_pad(indent)}if (!${cmp.comparand}.equals(${usebase.name_method_return(invo.method)})) {
+${""?left_pad(indent)}  throw new ServiceException("${invo.error}");
+${""?left_pad(indent)}}      
+      </#if>
+    </#if>
+  </#if>
+</#macro>
+
+<#macro print_statement_invocation usecase stmt indent>
+  <#local invo = stmt.invocation>
+${""?left_pad(indent)}${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);      
 </#macro>
