@@ -50,7 +50,11 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     <#assign assignedIdAttr = attr>
     ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
   <#else>
+    <#if attr.constraint.defaultValue??>
+    ${modelbase4java.type_attribute(attr)} ${java.nameVariable(attr.name)} = "${attr.constraint.defaultValue}";
+    <#else>
     ${modelbase4java.type_attribute(attr)} ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
+    </#if>
   </#if>  
 </#list>
 <#-------------------------->
@@ -107,7 +111,9 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     <#assign origobj = attr.getLabelledOption("original", "object")!"">
     <#if origobj != "" && !retObjs[origobj]??>
       <#assign retObjs += {origobj:origobj}>
-    retVal.copyForm${java.nameType(origobj)}(${java.nameVariable(origobj)});
+    retVal.copyFrom${java.nameType(origobj)}(${java.nameVariable(origobj)});
+    <#elseif origobj == "">
+    retVal.set${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
     </#if>
   </#list>  
 </#if>

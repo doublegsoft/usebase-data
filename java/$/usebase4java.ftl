@@ -3,6 +3,8 @@
 <@print_statement_comparison usecase=usecase stmt=stmt indent=indent />  
   <#elseif stmt.operator?ends_with("+|")>
 <@print_statement_save usecase=usecase stmt=stmt indent=indent />
+  <#elseif stmt.operator?ends_with("=|")>
+<@print_statement_update usecase=usecase stmt=stmt indent=indent />
   <#elseif stmt.operator?ends_with(":|")>
 <@print_statement_assignment usecase=usecase stmt=stmt indent=indent />  
   <#elseif stmt.operator?ends_with("?|")>
@@ -39,11 +41,23 @@ ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameTy
   </#if>
 </#macro>
 
+<#---------->
+<#-- 更新 -->
+<#---------->
+<#macro print_statement_update usecase stmt indent>
+  <#local update = stmt>
+  <#if update.saveObject??>
+    <#local updateObjName = update.saveObject.name?replace("#", "")>
+${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.update${java.nameType(updateObjName)}(${java.nameVariable(updateObjName)});
+  </#if>  
+</#macro>
+
 <#macro print_statement_assignment usecase stmt indent>
   <#local assign = stmt>
   <#if assign.assignOp == "=">
     <#if assign.value.invocation??>
-${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${assign.value.invocation.method}();
+      <#local invo = assign.value.invocation>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);
     <#elseif assign.value.objectValue??>
       <#local objVal = assign.value.objectValue>
       <#local uniqueObjName = objVal.getLabelledOption("unique", "object")>
