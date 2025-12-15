@@ -113,16 +113,30 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     ${java.nameType(usecase.name)}Result retVal = new ${java.nameType(usecase.name)}Result();
 <#assign retObjs = {}>
 <#if usecase.returnedObject??>
-  <#list usecase.returnedObject.attributes as attr>
-    <#assign origobj = attr.getLabelledOption("original", "object")!"">
-    <#assign opname = attr.getLabelledOption("original", "operator")!"">
-    <#if origobj != "" && !retObjs[origobj]?? && opname == "">
-      <#assign retObjs += {origobj:origobj}>
+  <#assign retObj = usecase.returnedObject>
+  <#if retObj.array>  
+    <#list retObj.attributes as attr>
+      <#assign origobj = attr.getLabelledOption("original", "object")!"">
+      <#assign opname = attr.getLabelledOption("original", "operator")!"">
+      <#if origobj != "" && !retObjs[origobj]?? && opname == "">
+        <#assign retObjs += {origobj:origobj}>
+    retVal.join${java.nameType(inflector.pluralize(origobj))}(${java.nameVariable(inflector.pluralize(origobj))});      
+      <#elseif origobj == "" || opname != "">
+    retVal.join${java.nameType(inflector.pluralize(attr.name))}(${java.nameVariable(inflector.pluralize(attr.name))});
+      </#if>  
+    </#list>
+  <#else>  
+    <#list retObj.attributes as attr>
+      <#assign origobj = attr.getLabelledOption("original", "object")!"">
+      <#assign opname = attr.getLabelledOption("original", "operator")!"">
+      <#if origobj != "" && !retObjs[origobj]?? && opname == "">
+        <#assign retObjs += {origobj:origobj}>
     retVal.copyFrom${java.nameType(origobj)}(${java.nameVariable(origobj)});
-    <#elseif origobj == "" || opname != "">
+      <#elseif origobj == "" || opname != "">
     retVal.set${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
-    </#if>
-  </#list>  
+      </#if>
+    </#list>
+  </#if>
 </#if>
     TRACER.info("${java.nameVariable(usecase.name)} exited with {}.", retVal);
     return retVal;

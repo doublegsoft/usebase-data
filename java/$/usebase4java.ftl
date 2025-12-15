@@ -34,6 +34,49 @@
 <#macro print_body_find usecase indent>
   <#local paramObj = usecase.parameterizedObject>
   <#if usecase.returnedObject??>
+    <#local masterObjs = {}>
+    <#local retObj = usecase.returnedObject>
+    <#list retObj.attributes as attr>
+      <#if attr.isLabelled("original")>
+        <#local objname = attr.getLabelledOption("original", "object")>
+        <#local opname = attr.getLabelledOption("original", "operator")!"">
+        <#if !masterObjs[objname]?? && opname == "">
+          <#local masterObjs += {objname: objname}>
+${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
+${""?left_pad(indent)}List<${java.nameType(objname)}> ${java.nameVariable(inflector.pluralize(objname))} = ${java.nameVariable(objname)}Service.find${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);
+        </#if>
+      </#if>
+    </#list>
+    <#local slaveObjs = {}>
+    <#list retObj.attributes as attr>
+      <#if attr.isLabelled("original")>
+        <#local objname = attr.getLabelledOption("original", "object")>
+        <#local opname = attr.getLabelledOption("original", "operator")!"">
+        <#if !slaveObjs[objname]??>
+          <#local slaveObjs += {objname: objname}>
+          <#local slaveObj = model.findObjectByName(objname)>
+          <#if opname == "count">
+${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();    
+            <#list masterObjs?values as masterObjName>
+              <#list slaveObj.attributes as attr>
+                <#if attr.type.name == masterObjName>
+${""?left_pad(indent)}for (${java.nameType(masterObjName)} row : ${java.nameVariable(inflector.pluralize(masterObjName))}) {
+${""?left_pad(indent)}  ${java.nameVariable(objname)}Query.add${java.nameType(masterObjName)}(row);
+${""?left_pad(indent)}}
+                </#if>
+              </#list>
+            </#list>
+${""?left_pad(indent)}List<${modelbase4java.type_attribute_primitive(attr)}> ${java.nameVariable(inflector.pluralize(attr.name))} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(objname)}(${java.nameVariable(objname)}Query);     
+          </#if>     
+        </#if>
+      </#if>
+    </#list>
+  </#if>
+</#macro>
+
+<#macro print_body_get usecase indent>
+  <#local paramObj = usecase.parameterizedObject>
+  <#if usecase.returnedObject??>
     <#local printedObjs = {}>
     <#local retObj = usecase.returnedObject>
     <#list retObj.attributes as attr>
