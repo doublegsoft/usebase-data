@@ -1,3 +1,60 @@
+<#function type_variable usecase varname>
+  <#if model.findObjectByName(varname)??>
+    <#return java.nameType(varname)>
+  </#if>
+  <#if usecase.paramemterizedObject??>
+    <#list usecase.parameterizedObject.attributes as attr>
+      <#if attr.name == varname>
+        <#local attrVar = attr>
+        <#break>
+      </#if>
+    </#list>
+  </#if>
+  <#if !attrVar?? && usecase.returnedObject??>
+    <#list usecase.returnedObject.attributes as attr>
+      <#if attr.name == varname>
+        <#local attrVar = attr>
+        <#break>
+      </#if>
+    </#list>
+  </#if>
+  <#if attrVar??>
+    <#return modelbase4java.type_attribute(attrVar)>
+  </#if>
+  <#return "String">
+</#function>
+
+<#macro print_body usecase indent>
+  <#if usecase.name?starts_with("find")>
+<@print_body_find usecase=usecase indent=indent />
+  <#elseif usecase.name?starts_with("save")>
+  </#if>
+</#macro>
+
+<#macro print_body_find usecase indent>
+  <#local paramObj = usecase.parameterizedObject>
+  <#if usecase.returnedObject??>
+    <#local printedObjs = {}>
+    <#local retObj = usecase.returnedObject>
+    <#list retObj.attributes as attr>
+      <#if attr.isLabelled("original")>
+        <#local objname = attr.getLabelledOption("original", "object")>
+        <#local opname = attr.getLabelledOption("original", "operator")!"">
+        <#if !printedObjs[objname]??>
+          <#local printedObjs += {objname: objname}>
+          <#if opname == "count">
+${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();          
+${""?left_pad(indent)}${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(attr.name)} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(objname)}(${java.nameVariable(objname)}Query);          
+          <#else>
+${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
+${""?left_pad(indent)}${java.nameType(objname)} ${java.nameVariable(objname)} = ${java.nameVariable(objname)}Service.get${java.nameType(objname)}(${java.nameVariable(objname)}Query);
+          </#if>
+        </#if>
+      </#if>
+    </#list>
+  </#if>
+</#macro>
+
 <#macro print_statement usecase stmt indent>
   <#if stmt.operator?ends_with("?|")>
 <@print_statement_comparison usecase=usecase stmt=stmt indent=indent />  
@@ -57,7 +114,7 @@ ${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.update${java.na
   <#if assign.assignOp == "=">
     <#if assign.value.invocation??>
       <#local invo = assign.value.invocation>
-${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);
+${""?left_pad(indent)}${type_variable(usecase, assign.assignee)} ${java.nameVariable(assign.assignee)} = ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);
     <#elseif assign.value.objectValue??>
       <#local objVal = assign.value.objectValue>
       <#local uniqueObjName = objVal.getLabelledOption("unique", "object")>
@@ -71,7 +128,7 @@ ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameT
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});        
         </#if>
       </#list>
-${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
+${""?left_pad(indent)}${java.nameType(uniqueObjName)} ${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
       <#if objVal.isLabelled("required")>    
 ${""?left_pad(indent)}if (${java.nameVariable(assign.assignee)} == null) {
 ${""?left_pad(indent)}  throw new ServiceException("${objVal.getLabelledOption("required", "message")}")

@@ -95,9 +95,15 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
       throw new ServiceException("${modelbase.get_object_label(uniqueObj)}已经存在，不能重复创建");
     }
 </#if>
-<#---------------->
-<#-- 处理内部逻辑 -->
-<#---------------->
+<#--------------------->
+<#-- 处理【模式化】逻辑 -->
+<#--------------------->
+<#if usecase.statements?size == 0>
+<@usebase4java.print_body usecase=usecase indent=4 />  
+</#if>
+<#--------------------->
+<#-- 处理【自定义】逻辑 -->
+<#--------------------->
 <#list usecase.statements as stmt>
 <@usebase4java.print_statement usecase=usecase stmt=stmt indent=4 />  
 </#list>
@@ -109,10 +115,11 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#if usecase.returnedObject??>
   <#list usecase.returnedObject.attributes as attr>
     <#assign origobj = attr.getLabelledOption("original", "object")!"">
-    <#if origobj != "" && !retObjs[origobj]??>
+    <#assign opname = attr.getLabelledOption("original", "operator")!"">
+    <#if origobj != "" && !retObjs[origobj]?? && opname == "">
       <#assign retObjs += {origobj:origobj}>
     retVal.copyFrom${java.nameType(origobj)}(${java.nameVariable(origobj)});
-    <#elseif origobj == "">
+    <#elseif origobj == "" || opname != "">
     retVal.set${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
     </#if>
   </#list>  
