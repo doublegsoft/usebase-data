@@ -66,7 +66,7 @@ ${""?left_pad(indent)}}
                 </#if>
               </#list>
             </#list>
-${""?left_pad(indent)}List<${modelbase4java.type_attribute_primitive(attr)}> ${java.nameVariable(inflector.pluralize(attr.name))} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(objname)}(${java.nameVariable(objname)}Query);     
+${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(inflector.pluralize(attr.name))} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);     
           </#if>     
         </#if>
       </#if>
@@ -87,7 +87,7 @@ ${""?left_pad(indent)}List<${modelbase4java.type_attribute_primitive(attr)}> ${j
           <#local printedObjs += {objname: objname}>
           <#if opname == "count">
 ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();          
-${""?left_pad(indent)}${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(attr.name)} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(objname)}(${java.nameVariable(objname)}Query);          
+${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(inflector.pluralize(attr.name))} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(inflector.pluraliz(eobjname))}(${java.nameVariable(objname)}Query);         
           <#else>
 ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
 ${""?left_pad(indent)}${java.nameType(objname)} ${java.nameVariable(objname)} = ${java.nameVariable(objname)}Service.get${java.nameType(objname)}(${java.nameVariable(objname)}Query);

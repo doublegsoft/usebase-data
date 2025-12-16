@@ -125,7 +125,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     retVal.join${java.nameType(inflector.pluralize(attr.name))}(${java.nameVariable(inflector.pluralize(attr.name))});
       </#if>  
     </#list>
-  <#else>  
+  <#else>
     <#list retObj.attributes as attr>
       <#assign origobj = attr.getLabelledOption("original", "object")!"">
       <#assign opname = attr.getLabelledOption("original", "operator")!"">
