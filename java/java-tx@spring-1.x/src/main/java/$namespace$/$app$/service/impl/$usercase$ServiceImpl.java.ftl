@@ -91,7 +91,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   </#list>  
     ${java.nameType(uniqueObjName)}Query existing${java.nameType(uniqueObjName)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(${java.nameVariable(uniqueObjName)}Query);
     if (existing${java.nameType(uniqueObjName)} != null && 
-        !existing${java.nameType(uniqueObjName)}.getId().equals(${modelbase.get_attribute_sql_name(uniqueObjIdAttr)})) {
+        !existing${java.nameType(uniqueObjName)}.get${java.nameType(modelbase.get_attribute_sql_name(uniqueObjIdAttr))}().equals(${modelbase.get_attribute_sql_name(uniqueObjIdAttr)})) {
       throw new ServiceException("${modelbase.get_object_label(uniqueObj)}已经存在，不能重复创建");
     }
 </#if>
