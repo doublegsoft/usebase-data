@@ -95,7 +95,7 @@ ${""?left_pad(indent)}}
                 </#if>
               </#list>
             </#list>
-${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(inflector.pluralize(attr.name))} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);     
+${""?left_pad(indent)}List<Map<String,Object>> ${java.nameVariable(inflector.pluralize(attr.name))} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);     
           </#if>     
         </#if>
       </#if>
@@ -219,6 +219,7 @@ ${""?left_pad(indent)}${java.nameVariable(attr.name)} = ${java.nameVariable(objn
 ${""?left_pad(indent)}List<${java.nameType(conjObjName)}Query> ${java.nameVariable(attr.name)}For${java.nameType(conjObjName)} = new ArrayList<>();
 ${""?left_pad(indent)}for (${java.nameType(objname)}Query item : ${java.nameVariable(attr.name)}) {
 ${""?left_pad(indent)}  ${java.nameType(conjObjName)}Query conjItem = new ${java.nameType(conjObjName)}Query();
+${""?left_pad(indent)}  conjItem.setDefaults();
             <#if anotherRefObj??>
               <#local anotherRefObjIdAttr = modelbase.get_id_attributes(anotherRefObj)?first>
 ${""?left_pad(indent)}  conjItem.set${java.nameType(modelbase.get_attribute_sql_name(anotherRefObjIdAttr))}(${modelbase.get_attribute_sql_name(anotherRefObjIdAttr)});

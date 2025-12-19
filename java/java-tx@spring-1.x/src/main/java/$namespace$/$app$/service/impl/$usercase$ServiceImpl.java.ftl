@@ -6,6 +6,11 @@
 ${java.license(license)}
 </#if>
 <#assign paramObj = usecase.parameterizedObject>
+<#assign isArray = "false">
+<#if usecase.returnedObject??>
+  <#assign retObj = usecase.returnedObject>
+  <#assign isArray = retObj.getLabelledOption("original", "array")!"false">
+</#if>
 package ${namespace}.${java.nameType(app.name)?lower_case}.service.impl;
 
 import org.slf4j.Logger;
@@ -17,8 +22,17 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   
   private static final Logger TRACER = LoggerFactory.getLogger(${java.nameType(usecase.name)}ServiceImpl.class);
 
+<#if isArray == "true">
+  public List<${java.nameType(usecase.name)}Result> ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException {
+<#else>
   public ${java.nameType(usecase.name)}Result ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException {
+</#if>    
     TRACER.info("${java.nameVariable(usecase.name)} entered with {}.", params);
+<#if isArray == "true">
+    List<${java.nameType(usecase.name)}Result> retVal = new ArrayList<>();
+<#else>
+    ${java.nameType(usecase.name)}Result retVal = new ${java.nameType(usecase.name)}Result();
+</#if>    
 <#----------------------------------------------------------------------->    
 <#-- 列举参数对象中所有的对象及其标识字段，参数对象包含一个或多个对象的属性组合而成 -->
 <#----------------------------------------------------------------------->    
@@ -116,13 +130,32 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   <#assign retObj = usecase.returnedObject>
   <#if retObj.array>  
     <#list retObj.attributes as attr>
-      <#assign origobj = attr.getLabelledOption("original", "object")!"">
+      <#assign origObjName = attr.getLabelledOption("original", "object")!"">
       <#assign opname = attr.getLabelledOption("original", "operator")!"">
-      <#if origobj != "" && !retObjs[origobj]?? && opname == "">
-        <#assign retObjs += {origobj:origobj}>
-    retVal.join${java.nameType(inflector.pluralize(origobj))}(${java.nameVariable(inflector.pluralize(origobj))});      
-      <#elseif origobj == "" || opname != "">
-    retVal.join${java.nameType(inflector.pluralize(attr.name))}(${java.nameVariable(inflector.pluralize(attr.name))});
+      <#if origObjName != "" && !retObjs[origObjName]?? && opname == "">
+        <#assign origObj = model.findObjectByName(origObjName)>
+        <#assign origObjIdAttr = modelbase.get_id_attributes(origObj)?first>
+        <#assign retObjs += {origObjName:origObjName}>
+    Map<${modelbase4java.type_attribute_primitive(origObjIdAttr)}, Integer> idIndexes = new HashMap<>();   
+    int index = 0;
+    for (${java.nameType(origObjName)} row : ${java.nameVariable(inflector.pluralize(origObjName))}) {
+      ${java.nameType(usecase.name)}Result result = new ${java.nameType(usecase.name)}Result();  
+      result.copyFrom${java.nameType(origObjName)}(row);
+      idIndexes.put(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}(), index++);
+      retVal.add(result);
+    }     
+      <#elseif origObjName == "" || opname != "">
+    for (Map<String,Object> row : ${java.nameVariable(inflector.pluralize(attr.name))}) {
+      Integer idx = idIndexes.get(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}());
+      if (idx == null) {
+        continue;
+      }
+      ${java.nameType(usecase.name)}Result result = retVal.get(idx);
+      if (result == null) {
+        continue;
+      }
+      result.set${java.nameType(attr.name)}((${modelbase4java.type_attribute(attr)})row.get("${java.nameVariable(attr.name)}"));
+    }
       </#if>  
     </#list>
   <#else>
