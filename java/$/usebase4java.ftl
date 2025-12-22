@@ -27,6 +27,8 @@
 <#macro print_body usecase indent>
   <#if usecase.name?starts_with("find")>
 <@print_body_find usecase=usecase indent=indent />
+  <#elseif usecase.name?starts_with("get")>
+<@print_body_get usecase=usecase indent=indent />
   <#elseif usecase.name?starts_with("save")>
 <@print_body_save usecase=usecase indent=indent />  
   </#if>
@@ -114,28 +116,80 @@ ${""?left_pad(indent)}List<Map<String,Object>> ${java.nameVariable(inflector.plu
   </#if>
 </#macro>
 
+<#-- 
+ * =========================================================================================
+ * Macro: print_body_get
+ * 
+ * 描述 (Description):
+ * 该宏用于生成“获取单条信息类”用例（Get UseCase）的核心业务逻辑代码。
+ * 它分析返回对象（Output DTO），根据属性映射自动调用相应的 Service 方法来获取数据或统计信息。
+ *
+ * 核心逻辑 (Core Logic):
+ * 1. 遍历返回属性 (Iterate Attributes):
+ *    扫描返回对象的所有属性，查找标记为 "original" 的属性，确定对应的领域对象。
+ *
+ * 2. 去重处理 (De-duplication):
+ *    使用 'printedObjs' 集合防止对同一个领域对象重复生成查询代码。
+ *    例如：如果返回值有 name 和 email 都来自 User 对象，只生成一次 User 查询。
+ *
+ * 3. 区分操作类型 (Operation Type Dispatch):
+ *    - 聚合查询 (count): 调用 aggregate{Obj} 方法。
+ *    - 单条查询 (default): 调用 get{Obj} 方法。
+ *
+ * 注意 (Note):
+ * 当前代码仅生成了 new Query()，通常还需要从 paramObj 中获取 ID 并设置到 Query 中
+ * (例如: userQuery.setId(input.getId()))，这部分逻辑可能需要根据实际 ID 命名规则补充。
+ *
+ * 参数 (Parameters):
+ * @param usecase - 当前生成的用例元数据对象
+ * @param indent  - 生成代码的左侧缩进空格数
+ * =========================================================================================
+ -->
 <#macro print_body_get usecase indent>
   <#local paramObj = usecase.parameterizedObject>
-  <#if usecase.returnedObject??>
-    <#local printedObjs = {}>
-    <#local retObj = usecase.returnedObject>
-    <#list retObj.attributes as attr>
-      <#if attr.isLabelled("original")>
-        <#local objname = attr.getLabelledOption("original", "object")>
-        <#local opname = attr.getLabelledOption("original", "operator")!"">
-        <#if !printedObjs[objname]??>
-          <#local printedObjs += {objname: objname}>
-          <#if opname == "count">
-${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();          
-${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(inflector.pluralize(attr.name))} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(inflector.pluraliz(eobjname))}(${java.nameVariable(objname)}Query);         
-          <#else>
-${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
-${""?left_pad(indent)}${java.nameType(objname)} ${java.nameVariable(objname)} = ${java.nameVariable(objname)}Service.get${java.nameType(objname)}(${java.nameVariable(objname)}Query);
-          </#if>
-        </#if>
-      </#if>
-    </#list>
+  <#local singleObjs = usebase.group_single_objects(paramObj)>
+  <#local arrayObjs = usebase.group_array_objects(paramObj)>
+  <#list singleObjs as obj>
+${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)} = null;
+  </#list>
+  <#-- 1. 查询参数校验 -->
+  <#local groups = usebase.group_attributes(paramObj)>
+  <#local allGroupingAttrs = []>
+  <#list groups?values as attrs>
+    <#local allGroupingAttrs += attrs>
+  </#list>
+  <#if allGroupingAttrs?size != 0>
+${""?left_pad(indent)}if (
   </#if>
+  <#list allGroupingAttrs as attr>
+${""?left_pad(indent)}    ObjectUtils.isEmpty(${java.nameVariable(attr.name)})<#if attr?index != allGroupingAttrs?size - 1> &&<#else>) {</#if>
+  </#list>
+  <#if allGroupingAttrs?size != 0>
+${""?left_pad(indent)}  throw new ServiceException("数据唯一性校验所需参数全部为空！");
+${""?left_pad(indent)}}
+  </#if>
+  <#-- 2. 通过参数查询对象 -->
+  <#list groups?values as attrs>
+${""?left_pad(indent)}if (
+    <#list attrs as attr>
+      <#local objname = attr.getLabelledOption("original", "object")>
+${""?left_pad(indent)}    !ObjectUtils.isEmpty(${java.nameVariable(attr.name)})<#if attr?index != attrs?size - 1> &&<#else>) {</#if>
+    </#list>
+${""?left_pad(indent)}  ${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
+    <#list attrs as attr>
+${""?left_pad(indent)}  ${java.nameVariable(objname)}Query.set${java.nameType(modelbase.get_attribute_sql_name(attr))}(${java.nameVariable(modelbase.get_attribute_sql_name(attr))});
+    </#list>
+${""?left_pad(indent)}  ${java.nameVariable(objname)} = ${java.nameVariable(objname)}Service.get${java.nameType(objname)}(${java.nameVariable(objname)}Query);    
+${""?left_pad(indent)}}
+  </#list>
+  <#-- 3. 根据查询出的对象组合成返回对象，如果存在额外的返回值，则继续查询出来 -->
+  <#local singleObjs = usebase.group_single_objects(usecase.returnedObject)>
+  <#local arrayObjs = usebase.group_array_objects(usecase.returnedObject)>
+  <#list arrayObjs as arrayObj>
+${""?left_pad(indent)}${java.nameType(arrayObj.name)}Query ${java.nameVariable(arrayObj.name)}Query = new ${java.nameType(arrayObj.name)}Query();
+${""?left_pad(indent)}${java.nameVariable(arrayObj.name)}Query.setLimit(-1);
+${""?left_pad(indent)}List<${java.nameType(arrayObj.name)}Query> ${java.nameVariable(inflector.pluralize(arrayObj.name))} = ${java.nameVariable(arrayObj.name)}Service.find${java.nameType(inflector.pluralize(arrayObj.name))}(${java.nameVariable(arrayObj.name)}Query).getData();
+  </#list>
 </#macro>
 
 <#-- 
