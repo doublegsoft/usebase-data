@@ -70,9 +70,18 @@
         <#local objname = attr.getLabelledOption("original", "object")>
         <#local opname = attr.getLabelledOption("original", "operator")!"">
         <#if !masterObjs[objname]?? && opname == "">
+          <#-- 当没有运算符的定义时，主要对象的查询参数赋值 -->
           <#local masterObjs += {objname: objname}>
 ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
-${""?left_pad(indent)}List<${java.nameType(objname)}> ${java.nameVariable(inflector.pluralize(objname))} = ${java.nameVariable(objname)}Service.find${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);
+${""?left_pad(indent)}${java.nameVariable(objname)}Query.setLimit(-1);
+          <#list paramObj.attributes as paramAttr>
+            <#local originalObjName = paramAttr.getLabelledOption("original", "object")!"">
+            <#if originalObjName == objname>
+${""?left_pad(indent)}${java.nameVariable(objname)}Query.set${java.nameType(modelbase.get_attribute_sql_name(paramAttr))}(${modelbase.get_attribute_sql_name(paramAttr)});
+            </#if>
+          </#list>
+${""?left_pad(indent)}Pagination<${java.nameType(objname)}Query> page${java.nameType(inflector.pluralize(objname))} = ${java.nameVariable(objname)}Service.find${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);
+${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(inflector.pluralize(objname))} = page${java.nameType(inflector.pluralize(objname))}.getData();
         </#if>
       </#if>
     </#list>
@@ -87,10 +96,12 @@ ${""?left_pad(indent)}List<${java.nameType(objname)}> ${java.nameVariable(inflec
           <#if opname == "count">
 ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();    
             <#list masterObjs?values as masterObjName>
+              <#local masterObj = model.findObjectByName(masterObjName)>
+              <#local masterObjIdAttr = modelbase.get_id_attributes(masterObj)?first>
               <#list slaveObj.attributes as attr>
                 <#if attr.type.name == masterObjName>
-${""?left_pad(indent)}for (${java.nameType(masterObjName)} row : ${java.nameVariable(inflector.pluralize(masterObjName))}) {
-${""?left_pad(indent)}  ${java.nameVariable(objname)}Query.add${java.nameType(masterObjName)}(row);
+${""?left_pad(indent)}for (${java.nameType(masterObjName)}Query row : ${java.nameVariable(inflector.pluralize(masterObjName))}) {
+${""?left_pad(indent)}  ${java.nameVariable(objname)}Query.add${java.nameType(modelbase.get_attribute_sql_name(masterObjIdAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(masterObjIdAttr))}());
 ${""?left_pad(indent)}}
                 </#if>
               </#list>

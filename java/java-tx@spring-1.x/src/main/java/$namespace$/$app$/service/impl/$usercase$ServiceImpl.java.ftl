@@ -49,7 +49,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
       <#assign explicitIdAttrs = explicitIdAttrs + {modelbase.get_attribute_sql_name(idAttr): idAttr}>
     </#list>
   </#if>
-</#list>  
+</#list>
 <#------------------------------------------->
 <#-- 潜在对象的所有标识字段，列举出来，不需要赋值 -->
 <#------------------------------------------->
@@ -57,7 +57,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     ${modelbase4java.type_attribute_primitive(idAttr)} ${modelbase.get_attribute_sql_name(idAttr)} = null;
 </#list>
 <#--------------------------------->
-<#-- 列举所有参数对象的属性，并且赋值 -->
+<#-- 声明所有参数对象的属性，并且赋值 -->
 <#--------------------------------->
 <#list paramObj.attributes as attr>
   <#if explicitIdAttrs[modelbase.get_attribute_sql_name(attr)]??>
