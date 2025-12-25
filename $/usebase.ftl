@@ -144,7 +144,7 @@
       <#local ret = ret + {objname: obj}>
     </#if>
   </#list>
-  <#return ret?values>
+  <#return ret>
 </#function>
 
 <#function group_array_objects obj>
@@ -157,5 +157,5 @@
       <#local ret = ret + {objname: obj}>
     </#if>
   </#list>
-  <#return ret?values>
+  <#return ret>
 </#function>

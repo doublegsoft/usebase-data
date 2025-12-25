@@ -147,9 +147,10 @@ ${""?left_pad(indent)}List<Map<String,Object>> ${java.nameVariable(inflector.plu
  -->
 <#macro print_body_get usecase indent>
   <#local paramObj = usecase.parameterizedObject>
+  <#local retObj = usecase.returnedObject>
   <#local singleObjs = usebase.group_single_objects(paramObj)>
   <#local arrayObjs = usebase.group_array_objects(paramObj)>
-  <#list singleObjs as obj>
+  <#list singleObjs?values as obj>
 ${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)} = null;
   </#list>
   <#-- 1. 查询参数校验 -->
@@ -173,6 +174,7 @@ ${""?left_pad(indent)}}
 ${""?left_pad(indent)}if (
     <#list attrs as attr>
       <#local objname = attr.getLabelledOption("original", "object")>
+      <#local obj = model.findObjectByName(objname)>
 ${""?left_pad(indent)}    !ObjectUtils.isEmpty(${java.nameVariable(attr.name)})<#if attr?index != attrs?size - 1> &&<#else>) {</#if>
     </#list>
 ${""?left_pad(indent)}  ${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
@@ -182,14 +184,96 @@ ${""?left_pad(indent)}  ${java.nameVariable(objname)}Query.set${java.nameType(mo
 ${""?left_pad(indent)}  ${java.nameVariable(objname)} = ${java.nameVariable(objname)}Service.get${java.nameType(objname)}(${java.nameVariable(objname)}Query);    
 ${""?left_pad(indent)}}
   </#list>
+${""?left_pad(indent)}if (${java.nameVariable(objname)} == null) {
+${""?left_pad(indent)}  throw new ServiceException("${modelbase.get_object_label(obj)}不存在");
+${""?left_pad(indent)}}
   <#-- 3. 根据查询出的对象组合成返回对象，如果存在额外的返回值，则继续查询出来 -->
-  <#local singleObjs = usebase.group_single_objects(usecase.returnedObject)>
-  <#local arrayObjs = usebase.group_array_objects(usecase.returnedObject)>
-  <#list arrayObjs as arrayObj>
-${""?left_pad(indent)}${java.nameType(arrayObj.name)}Query ${java.nameVariable(arrayObj.name)}Query = new ${java.nameType(arrayObj.name)}Query();
+  <#local singleObjs = usebase.group_single_objects(retObj)>
+  <#local arrayObjs = usebase.group_array_objects(retObj)>
+  <#-------------------------------------->
+  <#-- 声明全部需要查询集合属性的查询条件对象 -->
+  <#-------------------------------------->
+  <#list arrayObjs?values as arrayObj>
+${""?left_pad(indent)}// 查询【${modelbase.get_object_label(arrayObj)}】集合数据所使用的查询条件
+${""?left_pad(indent)}${java.nameType(arrayObj.name)}Query ${java.nameVariable(arrayObj.name)}Query = new ${java.nameType(arrayObj.name)}Query();  
 ${""?left_pad(indent)}${java.nameVariable(arrayObj.name)}Query.setLimit(-1);
-${""?left_pad(indent)}List<${java.nameType(arrayObj.name)}Query> ${java.nameVariable(inflector.pluralize(arrayObj.name))} = ${java.nameVariable(arrayObj.name)}Service.find${java.nameType(inflector.pluralize(arrayObj.name))}(${java.nameVariable(arrayObj.name)}Query).getData();
   </#list>
+  <#list retObj.attributes as retObjAttr>
+    <#if !retObjAttr.type.collection><#continue></#if>
+    <#if retObjAttr.isLabelled("conjunction")>
+      <#local conjObjName = retObjAttr.getLabelledOption("conjunction", "object")>
+      <#local conjObj = model.findObjectByName(conjObjName)>
+${""?left_pad(indent)}// 查询【${modelbase.get_object_label(conjObj)}】中间（多对多）关联集合数据所使用的查询条件      
+    <#else>
+      <#local conjObj = model.findObjectByName(retObjAttr.type.componentType.name)>
+${""?left_pad(indent)}// 查询【${modelbase.get_object_label(conjObj)}】中间（一对多）关联集合数据所使用的查询条件      
+    </#if>
+${""?left_pad(indent)}${java.nameType(conjObj.name)}Query ${java.nameVariable(conjObj.name)}Query = new ${java.nameType(conjObj.name)}Query();
+${""?left_pad(indent)}${java.nameVariable(conjObj.name)}Query.setLimit(-1);      
+  </#list>  
+  <#list retObj.attributes as retObjAttr>
+    <#if !retObjAttr.type.collection><#continue></#if>
+    <#--------------------------------------------------------------------------------------->
+    <#-- 对于数组属性，这类一对多的情况，先考虑是否存在【连接】对象来关联其他属性（可能分属于其他不同对象），-->
+    <#-- 如果没有则在自身的对象属性中查找关联属性到其他属性（对象）中。                               -->
+    <#--------------------------------------------------------------------------------------->
+    <#if retObjAttr.isLabelled("conjunction")>
+      <#local conjObjName = retObjAttr.getLabelledOption("conjunction", "object")>
+      <#local conjObj = model.findObjectByName(conjObjName)>    
+    <#else>
+      <#local conjObj = model.findObjectByName(retObjAttr.type.componentType.name)> 
+    </#if>     
+    <#list conjObj.attributes as conjAttr>
+      <#if singleObjs[conjAttr.type.name]??>
+        <#local singleRefObj = singleObjs[conjAttr.type.name]>
+        <#local singleRefObjIdAttr = modelbase.get_id_attributes(singleRefObj)?first>
+${""?left_pad(indent)}${java.nameVariable(conjObjName)}Query.set${java.nameType(modelbase.get_attribute_sql_name(conjAttr))}(${java.nameVariable(singleRefObj.name)}.get${java.nameType(modelbase.get_attribute_sql_name(singleRefObjIdAttr))}());              
+        <#break>
+      </#if>
+    </#list>
+    <#------------------------------------------------------->
+    <#-- TODO: 如果没有找到作为【单一】对象关联到当前数组类型的属性 -->
+    <#------------------------------------------------------->
+    <#list conjObj.attributes as conjAttr>
+      <#if singleObjs[conjAttr.type.name]??><#continue></#if>
+      <#if arrayObjs[conjAttr.type.name]??>
+        <#local arrayRefObj = arrayObjs[conjAttr.type.name]>
+        <#local arrayRefObjIdAttr = modelbase.get_id_attributes(arrayRefObj)?first>
+<#--  ${""?left_pad(indent)}${java.nameVariable(conjObj.name)}Query.add${java.nameType(modelbase.get_attribute_sql_name(conjAttr))}(${java.nameVariable(arrayRefObj.name)}.get${java.nameType(modelbase.get_attribute_sql_name(arrayRefObjIdAttr))}());     -->
+        <#break>
+      </#if>
+    </#list>  
+${""?left_pad(indent)}// 查找【${modelbase.get_object_label(conjObj)}】关联对象
+${""?left_pad(indent)}List<${java.nameType(conjObjName)}Query> ${java.nameVariable(inflector.pluralize(conjObjName))} = ${java.nameVariable(conjObjName)}Service.find${java.nameType(inflector.pluralize(conjObjName))}(${java.nameVariable(conjObjName)}Query).getData();  
+${""?left_pad(indent)}for (${java.nameType(conjObjName)}Query row : ${java.nameVariable(inflector.pluralize(conjObjName))}) {
+    <#list conjObj.attributes as conjAttr>
+      <#list arrayObjs?values as arrayObj>
+        <#if conjAttr.type.name == arrayObj.name>
+${""?left_pad(indent)}  ${java.nameVariable(arrayObj.name)}Query.add${java.nameType(modelbase.get_attribute_sql_name(conjAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(modelbase.get_id_attributes(arrayObj)?first))}());
+          <#break>
+        </#if>
+      </#list>  
+    </#list>
+${""?left_pad(indent)}}
+    <#local arrayObj = model.findObjectByName(retObjAttr.type.componentType.name)>
+    <#local arrayRefObjIdAttr = modelbase.get_id_attributes(arrayObj)?first>
+${""?left_pad(indent)}// 查找【${modelbase.get_object_label(arrayObj)}】集合对象
+${""?left_pad(indent)}List<${java.nameType(arrayObj.name)}Query> ${java.nameVariable(inflector.pluralize(arrayObj.name))} = ${java.nameVariable(arrayObj.name)}Service.find${java.nameType(inflector.pluralize(arrayObj.name))}(${java.nameVariable(arrayObj.name)}Query).getData(); 
+    <#if retObjAttr?index != retObj.attributes?size - 1>
+${""?left_pad(indent)}for (${java.nameType(arrayObj.name)}Query row : ${java.nameVariable(inflector.pluralize(arrayObj.name))}) {
+<#list retObj.attributes as retObjAttr>
+    <#if !retObjAttr.type.collection><#continue></#if>
+    <#if retObjAttr.isLabelled("conjunction")>
+      <#local conjObjName = retObjAttr.getLabelledOption("conjunction", "object")>
+      <#local conjObj = model.findObjectByName(conjObjName)>  
+    <#else>
+      <#local conjObj = model.findObjectByName(retObjAttr.type.componentType.name)>
+    </#if>    
+  </#list>    
+${""?left_pad(indent)}  ${java.nameVariable(conjObj.name)}Query.add${java.nameType(modelbase.get_attribute_sql_name(arrayRefObjIdAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(arrayRefObjIdAttr))}()); 
+${""?left_pad(indent)}}
+    </#if>
+  </#list><#-- list retObj.attributes as retObjAttr -->
 </#macro>
 
 <#-- 
