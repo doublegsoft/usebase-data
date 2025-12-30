@@ -9,7 +9,7 @@
  ###
  ### @return
  ###        the programming language type name
- #-->
+ -->
 <#function type_attribute attr>
   <#if attr.type.custom>
     <#assign refObj = model.findObjectByName(attr.type.name)>
