@@ -129,6 +129,9 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#if usecase.returnedObject??>
   <#assign retObj = usecase.returnedObject>
   <#if retObj.array>  
+    <#----------------------->
+    <#-- 拼接各个查询结果集合 -->
+    <#----------------------->
     <#list retObj.attributes as attr>
       <#assign origObjName = attr.getLabelledOption("original", "object")!"">
       <#assign opname = attr.getLabelledOption("original", "operator")!"">
@@ -136,14 +139,20 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
         <#assign origObj = model.findObjectByName(origObjName)>
         <#assign origObjIdAttr = modelbase.get_id_attributes(origObj)?first>
         <#assign retObjs += {origObjName:origObjName}>
-    Map<${modelbase4java.type_attribute_primitive(origObjIdAttr)}, Integer> idIndexes = new HashMap<>();   
-    int index = 0;
-    for (${java.nameType(origObjName)} row : ${java.nameVariable(inflector.pluralize(origObjName))}) {
-      ${java.nameType(usecase.name)}Result result = new ${java.nameType(usecase.name)}Result();  
-      result.copyFrom${java.nameType(origObjName)}(row);
-      idIndexes.put(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}(), index++);
-      retVal.add(result);
-    }     
+        <#if attr.getLabelledOption("conjunction", "target_attribute")??>
+          <#assign targetObjName = attr.getLabelledOption("conjunction", "target_object")>
+          <#assign targetAttrName = attr.getLabelledOption("conjunction", "target_attribute")>
+          <#assign sourceObjName = attr.getLabelledOption("conjunction", "source_object")>
+          <#assign sourceAttrName = attr.getLabelledOption("conjunction", "source_attribute")>
+          <#assign targetObj = model.findObjectByName(targetObjName)>
+          <#assign targetObjAttr = targetObj.getAttribute(targetAttrName)>
+          <#assign sourceObj = model.findObjectByName(sourceObjName)>
+          <#assign sourceObjAttr = sourceObj.getAttribute(sourceAttrName)>
+    Map<${modelbase4java.type_attribute_primitive(origObjIdAttr)}, ${java.nameType(sourceObj.name)}Info> ${java.nameVariable(sourceObj.name)}InfoIndexes = new HashMap<>();       
+    for (${java.nameType(origObjName)}Info row : ${java.nameVariable(inflector.pluralize(origObjName))}) {
+      ${java.nameVariable(sourceObj.name)}InfoIndexes.put(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}(), row);
+    }
+        </#if>   
       <#elseif origObjName == "" || opname != "">
     for (Map<String,Object> row : ${java.nameVariable(inflector.pluralize(attr.name))}) {
       Integer idx = idIndexes.get(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}());
@@ -158,6 +167,39 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     }
       </#if>  
     </#list>
+    <#-- FIXME: 不是非常严谨 -->
+    <#assign masterObjAttr = retObj.attributes?first>
+    <#assign origObjName = masterObjAttr.getLabelledOption("original", "object")!"">
+    <#assign origObj = model.findObjectByName(origObjName)>
+    <#assign origObjIdAttr = modelbase.get_id_attributes(origObj)?first>
+    <#assign joinedObjAttrs = {(origObjName + "#" + origObjIdAttr.name): origObj}>
+    for (${java.nameType(origObjName)}Info row : ${java.nameVariable(inflector.pluralize(origObjName))}) {
+      ${java.nameType(usecase.name)}Result result = new ${java.nameType(usecase.name)}Result();  
+      result.copyFrom${java.nameType(origObjName)}(row);
+      retVal.add(result);
+    <#list retObj.attributes as attr>
+      <#if !attr.isLabelled("original")><#continue></#if>
+      <#assign origObjName = attr.getLabelledOption("original", "object")>
+      <#assign origAttrName = attr.getLabelledOption("original", "attribute")>
+      <#if joinedObjAttrs[(origObjName + "#" + origAttrName)]??><#continue></#if>
+      <#if attr.getLabelledOption("conjunction", "target_attribute")??>
+        <#assign targetObjName = attr.getLabelledOption("conjunction", "target_object")>
+        <#assign targetAttrName = attr.getLabelledOption("conjunction", "target_attribute")>
+        <#assign sourceObjName = attr.getLabelledOption("conjunction", "source_object")>
+        <#assign sourceAttrName = attr.getLabelledOption("conjunction", "source_attribute")>
+        <#if joinedObjAttrs[(sourceObjName + "#" + sourceAttrName)]??><#continue></#if>
+        <#assign targetObj = model.findObjectByName(targetObjName)>
+        <#assign targetObjAttr = targetObj.getAttribute(targetAttrName)>
+        <#assign sourceObj = model.findObjectByName(sourceObjName)>
+        <#assign sourceObjAttr = sourceObj.getAttribute(sourceAttrName)>
+        <#assign joinedObjAttrs += {(sourceObjName + "#" + sourceAttrName): sourceObj}>
+      ${java.nameType(sourceObj.name)}Info found${java.nameType(sourceObj.name)} = ${java.nameType(sourceObj.name)}InfoIndexes.get(row.get${java.nameType(modelbase.get_attribute_sql_name(targetObjAttr))}());
+      if (found${java.nameType(sourceObj.name)} != null) {
+        result.copyFrom${java.nameType(origObjName)}(found${java.nameType(sourceObj.name)});
+      }
+      </#if>  
+    </#list>
+    }
   <#else>
     <#list retObj.attributes as attr>
       <#assign origobj = attr.getLabelledOption("original", "object")!"">
@@ -169,7 +211,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     retVal.set${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
       </#if>
     </#list>
-  </#if>
+  </#if><#--if retObj.array-->  
 </#if>
     TRACER.info("${java.nameVariable(usecase.name)} exited with {}.", retVal);
     return retVal;

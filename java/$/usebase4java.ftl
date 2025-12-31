@@ -64,56 +64,70 @@
  -->
 <#macro print_body_find usecase indent>
   <#local paramObj = usecase.parameterizedObject>
-  <#if usecase.returnedObject??>
-    <#local masterObjs = {}>
-    <#local retObj = usecase.returnedObject>
-    <#list retObj.attributes as attr>
-      <#if attr.isLabelled("original")>
-        <#local objname = attr.getLabelledOption("original", "object")>
-        <#local opname = attr.getLabelledOption("original", "operator")!"">
-        <#if !masterObjs[objname]?? && opname == "">
-          <#-- 当没有运算符的定义时，主要对象的查询参数赋值 -->
-          <#local masterObjs += {objname: objname}>
+  <#if !usecase.returnedObject??><#return></#if>
+  <#local masterObjs = {}>
+  <#local retObj = usecase.returnedObject>
+  <#list retObj.attributes as attr>
+    <#if !attr.isLabelled("original")><#continue></#if>
+    <#local objname = attr.getLabelledOption("original", "object")>
+    <#local opname = attr.getLabelledOption("original", "operator")!"">
+    <#if masterObjs[objname]??><#continue></#if>
+      <#-- 当有聚合运算符时，跳过主要对象的查询参数赋值 -->
+    <#if opname == "">
+      <#-- 当没有运算符的定义时，主要对象的查询参数赋值 -->
+      <#local masterObjs += {objname: objname}>
+${""?left_pad(indent)}// 查询【${modelbase.get_object_label(model.findObjectByName(objname))}】集合对象       
 ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
 ${""?left_pad(indent)}${java.nameVariable(objname)}Query.setLimit(-1);
-          <#list paramObj.attributes as paramAttr>
-            <#local originalObjName = paramAttr.getLabelledOption("original", "object")!"">
-            <#if originalObjName == objname>
+      <#list paramObj.attributes as paramAttr>
+        <#local originalObjName = paramAttr.getLabelledOption("original", "object")!"">
+        <#if originalObjName == objname>
 ${""?left_pad(indent)}${java.nameVariable(objname)}Query.set${java.nameType(modelbase.get_attribute_sql_name(paramAttr))}(${modelbase.get_attribute_sql_name(paramAttr)});
-            </#if>
-          </#list>
-${""?left_pad(indent)}Pagination<${java.nameType(objname)}Query> page${java.nameType(inflector.pluralize(objname))} = ${java.nameVariable(objname)}Service.find${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);
-${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(inflector.pluralize(objname))} = page${java.nameType(inflector.pluralize(objname))}.getData();
         </#if>
-      </#if>
-    </#list>
-    <#local slaveObjs = {}>
-    <#list retObj.attributes as attr>
-      <#if attr.isLabelled("original")>
-        <#local objname = attr.getLabelledOption("original", "object")>
-        <#local opname = attr.getLabelledOption("original", "operator")!"">
-        <#if !slaveObjs[objname]??>
-          <#local slaveObjs += {objname: objname}>
-          <#local slaveObj = model.findObjectByName(objname)>
-          <#if opname == "count">
+      </#list>
+    </#if>
+    <#if attr.getLabelledOption("conjunction", "target_attribute")??>
+      <#local masterObjs += {objname: objname}>
+      <#local targetObjName = attr.getLabelledOption("conjunction", "target_object")>
+      <#local targetAttrName = attr.getLabelledOption("conjunction", "target_attribute")>
+      <#local sourceObjName = attr.getLabelledOption("conjunction", "source_object")>
+      <#local sourceAttrName = attr.getLabelledOption("conjunction", "source_attribute")>
+      <#local targetObj = model.findObjectByName(targetObjName)>
+      <#local targetObjAttr = targetObj.getAttribute(targetAttrName)>
+      <#local sourceObj = model.findObjectByName(sourceObjName)>
+      <#local sourceObjAttr = sourceObj.getAttribute(sourceAttrName)>
+${""?left_pad(indent)}for (${java.nameType(targetObj.name)}Info row : ${java.nameVariable(inflector.pluralize(targetObj.name))}) {
+${""?left_pad(indent)}  ${java.nameVariable(sourceObj.name)}Query.add${java.nameType(modelbase.get_attribute_sql_name(sourceObjAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(targetObjAttr))}());
+${""?left_pad(indent)}}
+    </#if>     
+${""?left_pad(indent)}Pagination<${java.nameType(objname)}Info> paged${java.nameType(inflector.pluralize(objname))} = ${java.nameVariable(objname)}Service.find${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);
+${""?left_pad(indent)}List<${java.nameType(objname)}INfo> ${java.nameVariable(inflector.pluralize(objname))} = paged${java.nameType(inflector.pluralize(objname))}.getData();    
+  </#list>
+  <#local slaveObjs = {}>
+  <#list retObj.attributes as attr>
+    <#if attr.isLabelled("original")>
+      <#local objname = attr.getLabelledOption("original", "object")>
+      <#local opname = attr.getLabelledOption("original", "operator")!"">
+      <#if slaveObjs[objname]??><#continue></#if>
+      <#local slaveObjs += {objname: objname}>
+      <#local slaveObj = model.findObjectByName(objname)>
+      <#if opname == "count">
 ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();    
-            <#list masterObjs?values as masterObjName>
-              <#local masterObj = model.findObjectByName(masterObjName)>
-              <#local masterObjIdAttr = modelbase.get_id_attributes(masterObj)?first>
-              <#list slaveObj.attributes as attr>
-                <#if attr.type.name == masterObjName>
-${""?left_pad(indent)}for (${java.nameType(masterObjName)}Query row : ${java.nameVariable(inflector.pluralize(masterObjName))}) {
+        <#list masterObjs?values as masterObjName>
+          <#local masterObj = model.findObjectByName(masterObjName)>
+          <#local masterObjIdAttr = modelbase.get_id_attributes(masterObj)?first>
+          <#list slaveObj.attributes as attr>
+            <#if attr.type.name == masterObjName>
+${""?left_pad(indent)}for (${java.nameType(masterObjName)}Info row : ${java.nameVariable(inflector.pluralize(masterObjName))}) {
 ${""?left_pad(indent)}  ${java.nameVariable(objname)}Query.add${java.nameType(modelbase.get_attribute_sql_name(masterObjIdAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(masterObjIdAttr))}());
 ${""?left_pad(indent)}}
-                </#if>
-              </#list>
-            </#list>
+            </#if>
+          </#list>
+        </#list>
 ${""?left_pad(indent)}List<Map<String,Object>> ${java.nameVariable(inflector.pluralize(attr.name))} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);     
-          </#if>     
-        </#if>
-      </#if>
-    </#list>
-  </#if>
+      </#if> 
+    </#if>
+  </#list>
 </#macro>
 
 <#-- 
@@ -153,7 +167,9 @@ ${""?left_pad(indent)}List<Map<String,Object>> ${java.nameVariable(inflector.plu
   <#list singleObjs?values as obj>
 ${""?left_pad(indent)}${java.nameType(obj.name)}Info ${java.nameVariable(obj.name)} = null;
   </#list>
+  <#------------------->
   <#-- 1. 查询参数校验 -->
+  <#------------------->
   <#local groups = usebase.group_unique_attributes(paramObj)>
   <#local allGroupingAttrs = []>
   <#list groups?values as attrs>
@@ -171,7 +187,9 @@ ${""?left_pad(indent)}    ObjectUtils.isEmpty(${java.nameVariable(attr.name)})<#
 ${""?left_pad(indent)}  throw new ServiceException("数据唯一性校验所需参数全部为空！");
 ${""?left_pad(indent)}}
   </#if>
-  <#-- 2. 通过参数查询对象 -->
+  <#----------------------------------------------------------->
+  <#-- 2. 通过参数查询“聚根”对象，包括：查询声明，条件设置，结果判断。 -->
+  <#----------------------------------------------------------->
   <#local alreadyDeclaredObjs = {}>
   <#list groups?values as attrs>
     <#list attrs as attr>
@@ -194,7 +212,9 @@ ${""?left_pad(indent)}}
 ${""?left_pad(indent)}if (${java.nameVariable(objname)} == null) {
 ${""?left_pad(indent)}  throw new ServiceException("${modelbase.get_object_label(obj)}不存在");
 ${""?left_pad(indent)}}
-  <#-- 3. 根据查询出的对象组合成返回对象，如果存在额外的返回值，则继续查询出来 -->
+  <#------------------------------------------------------------------>
+  <#-- 3. 根据查询出其余的对象组合成返回的“聚根”对象，包括：单一对象和数组对象 -->
+  <#------------------------------------------------------------------>
   <#-------------------------------------->
   <#-- 声明全部需要查询集合属性的查询条件对象 -->
   <#-------------------------------------->
@@ -248,6 +268,7 @@ ${""?left_pad(indent)}if (${java.nameVariable(strongObjRels.object.name)} != nul
 ${""?left_pad(indent)}  List<${java.nameType(obj.name)}Info> data = ${java.nameVariable(obj.name)}InfoService.find${java.nameType(inflector.pluralize(obj.name))}(${java.nameVariable(obj.name)}Query).getData();
 ${""?left_pad(indent)}  ${java.nameVariable(inflector.pluralize(obj.name))}.addAll(data);
 ${""?left_pad(indent)}}
+      <#-- 避免打印多余的for循环语句 -->
       <#local haveStatementsInLoop = false>
       <#list objRels.relationships as rel>
         <#local anotherObj = rel.getAnotherObject(obj.name)>
