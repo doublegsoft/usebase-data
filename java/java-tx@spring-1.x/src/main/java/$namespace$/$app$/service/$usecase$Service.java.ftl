@@ -3,6 +3,8 @@ ${java.license(license)}
 </#if>
 package ${namespace}.${java.nameType(app.name)?lower_case}.service;
 
+import ${namespace}.${java.nameType(app.name)?lower_case}.dto.msg.*;
+
 public interface ${java.nameType(usecase.name)}Service {
   
   /**

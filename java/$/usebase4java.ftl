@@ -100,8 +100,8 @@ ${""?left_pad(indent)}for (${java.nameType(targetObj.name)}Info row : ${java.nam
 ${""?left_pad(indent)}  ${java.nameVariable(sourceObj.name)}Query.add${java.nameType(modelbase.get_attribute_sql_name(sourceObjAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(targetObjAttr))}());
 ${""?left_pad(indent)}}
     </#if>     
-${""?left_pad(indent)}Pagination<${java.nameType(objname)}Info> paged${java.nameType(inflector.pluralize(objname))} = ${java.nameVariable(objname)}Service.find${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);
-${""?left_pad(indent)}List<${java.nameType(objname)}INfo> ${java.nameVariable(inflector.pluralize(objname))} = paged${java.nameType(inflector.pluralize(objname))}.getData();    
+${""?left_pad(indent)}Pagination<${java.nameType(objname)}> paged${java.nameType(inflector.pluralize(objname))} = ${java.nameVariable(objname)}Service.find${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);
+${""?left_pad(indent)}List<${java.nameType(objname)}> ${java.nameVariable(inflector.pluralize(objname))} = paged${java.nameType(inflector.pluralize(objname))}.getData();    
   </#list>
   <#local slaveObjs = {}>
   <#list retObj.attributes as attr>
@@ -165,7 +165,7 @@ ${""?left_pad(indent)}List<Map<String,Object>> ${java.nameVariable(inflector.plu
   <#local singleObjs = usebase.group_single_objects(paramObj)>
   <#local arrayObjs = usebase.group_array_objects(paramObj)>
   <#list singleObjs?values as obj>
-${""?left_pad(indent)}${java.nameType(obj.name)}Info ${java.nameVariable(obj.name)} = null;
+${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)} = null;
   </#list>
   <#------------------->
   <#-- 1. 查询参数校验 -->
@@ -177,14 +177,14 @@ ${""?left_pad(indent)}${java.nameType(obj.name)}Info ${java.nameVariable(obj.nam
   </#list>
   <#if allGroupingAttrs?size != 0>
     <#local attr = allGroupingAttrs[0]>
-${""?left_pad(indent)}if (ObjectUtils.isEmpty(${java.nameVariable(attr.name)})<#if allGroupingAttrs?size != 1> &&<#else>) {</#if>
+${""?left_pad(indent)}if (Objects.isEmpty(${java.nameVariable(attr.name)})<#if allGroupingAttrs?size != 1> &&<#else>) {</#if>
   </#if>
   <#list allGroupingAttrs as attr>
     <#if attr?index == 0><#continue></#if>
-${""?left_pad(indent)}    ObjectUtils.isEmpty(${java.nameVariable(attr.name)})<#if attr?index != allGroupingAttrs?size - 1> &&<#else>) {</#if>
+${""?left_pad(indent)}    Objects.isEmpty(${java.nameVariable(attr.name)})<#if attr?index != allGroupingAttrs?size - 1> &&<#else>) {</#if>
   </#list>
   <#if allGroupingAttrs?size != 0>
-${""?left_pad(indent)}  throw new ServiceException("数据唯一性校验所需参数全部为空！");
+${""?left_pad(indent)}  throw new ServiceException(400, "数据唯一性校验所需参数全部为空！");
 ${""?left_pad(indent)}}
   </#if>
   <#----------------------------------------------------------->
@@ -197,9 +197,9 @@ ${""?left_pad(indent)}}
       <#local obj = model.findObjectByName(objname)>
       <#local alreadyDeclaredObjs += {objname: obj}>
       <#if attr?index == 0>
-${""?left_pad(indent)}if (!ObjectUtils.isEmpty(${java.nameVariable(attr.name)})<#if attr?index != attrs?size - 1> &&<#else>) {</#if>
+${""?left_pad(indent)}if (!Objects.isEmpty(${java.nameVariable(attr.name)})<#if attr?index != attrs?size - 1> &&<#else>) {</#if>
       <#else>
-${""?left_pad(indent)}    !ObjectUtils.isEmpty(${java.nameVariable(attr.name)})<#if attr?index != attrs?size - 1> &&<#else>) {</#if>
+${""?left_pad(indent)}    !Objects.isEmpty(${java.nameVariable(attr.name)})<#if attr?index != attrs?size - 1> &&<#else>) {</#if>
       </#if>
     </#list>
 ${""?left_pad(indent)}  ${java.nameType(obj.name)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
@@ -210,7 +210,7 @@ ${""?left_pad(indent)}  ${java.nameVariable(objname)} = ${java.nameVariable(objn
 ${""?left_pad(indent)}}
   </#list>
 ${""?left_pad(indent)}if (${java.nameVariable(objname)} == null) {
-${""?left_pad(indent)}  throw new ServiceException("${modelbase.get_object_label(obj)}不存在");
+${""?left_pad(indent)}  throw new ServiceException(404, "${modelbase.get_object_label(obj)}不存在");
 ${""?left_pad(indent)}}
   <#------------------------------------------------------------------>
   <#-- 3. 根据查询出其余的对象组合成返回的“聚根”对象，包括：单一对象和数组对象 -->
@@ -234,7 +234,7 @@ ${""?left_pad(indent)}${java.nameType(singleObj.name)}Query ${java.nameVariable(
   </#list>
   <#list relatingObjs as arrayObj>
     <#if !arrayObjs[arrayObj.name]??><#continue></#if>
-${""?left_pad(indent)}List<${java.nameType(arrayObj.name)}Info> ${java.nameVariable(inflector.pluralize(arrayObj.name))} = new ArrayList<>();
+${""?left_pad(indent)}List<${java.nameType(arrayObj.name)}Query> ${java.nameVariable(inflector.pluralize(arrayObj.name))} = new ArrayList<>();
   </#list>
   <#local aggregateChain = aggregateBuilder.build(retObj)>
   <#local objRelsList = aggregateChain.build()>
@@ -265,7 +265,7 @@ ${""?left_pad(indent)}if (!${java.nameVariable(inflector.pluralize(strongObjRels
       <#else>
 ${""?left_pad(indent)}if (${java.nameVariable(strongObjRels.object.name)} != null) {
       </#if>
-${""?left_pad(indent)}  List<${java.nameType(obj.name)}Info> data = ${java.nameVariable(obj.name)}InfoService.find${java.nameType(inflector.pluralize(obj.name))}(${java.nameVariable(obj.name)}Query).getData();
+${""?left_pad(indent)}  List<${java.nameType(obj.name)}Query> data = ${java.nameVariable(obj.name)}Service.find${java.nameType(inflector.pluralize(obj.name))}(${java.nameVariable(obj.name)}Query).getData();
 ${""?left_pad(indent)}  ${java.nameVariable(inflector.pluralize(obj.name))}.addAll(data);
 ${""?left_pad(indent)}}
       <#-- 避免打印多余的for循环语句 -->
@@ -277,7 +277,7 @@ ${""?left_pad(indent)}}
         <#local haveStatementsInLoop = true>
       </#list>
       <#if !haveStatementsInLoop><#continue></#if>
-${""?left_pad(indent)}for (${java.nameType(obj.name)}Info row : ${java.nameVariable(inflector.pluralize(obj.name))}) {
+${""?left_pad(indent)}for (${java.nameType(obj.name)}Query row : ${java.nameVariable(inflector.pluralize(obj.name))}) {
       <#list objRels.relationships as rel>
         <#local selfObj = rel.getAnotherObject(obj.name)>
         <#local selfAttr = rel.getAnotherAttribute(obj.name)>

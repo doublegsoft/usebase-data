@@ -13,14 +13,31 @@ ${java.license(license)}
 </#if>
 package ${namespace}.${java.nameType(app.name)?lower_case}.service.impl;
 
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Map;
+import java.util.Set;
+import java.util.HashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ${namespace}.${java.nameType(app.name)?lower_case}.service.${java.nameType(usecase.name)}Service;
+import <#if namespace??>${namespace}.</#if>${app.name}.dto.payload.*;
+import <#if namespace??>${namespace}.</#if>${app.name}.dto.info.*;
+import <#if namespace??>${namespace}.</#if>${app.name}.dto.msg.*;
+import ${namespace}.${java.nameType(app.name)?lower_case}.service.*;
+import ${namespace}.${java.nameType(app.name)?lower_case}.util.*;
 
 public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameType(usecase.name)}Service {
   
   private static final Logger TRACER = LoggerFactory.getLogger(${java.nameType(usecase.name)}ServiceImpl.class);
+
+<#assign aggregateChain = aggregateBuilder.build(retObj)>
+<#assign objRelsList = aggregateChain.build()>
+<#list aggregateChain.getObjects() as obj>
+
+  private ${java.nameType(obj.name)}Service ${java.nameVariable(obj.name)}Service;
+</#list>
 
 <#if isArray == "true">
   public List<${java.nameType(usecase.name)}Result> ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException {
@@ -124,7 +141,6 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#--------------------->
 <#-- 封装服务函数返回值 -->
 <#--------------------->
-    ${java.nameType(usecase.name)}Result retVal = new ${java.nameType(usecase.name)}Result();
 <#assign retObjs = {}>
 <#if usecase.returnedObject??>
   <#assign retObj = usecase.returnedObject>
@@ -208,7 +224,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
         <#assign retObjs += {origobj:origobj}>
     retVal.copyFrom${java.nameType(origobj)}(${java.nameVariable(origobj)});
       <#elseif origobj == "" || opname != "">
-    retVal.set${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
+    retVal.copyFrom${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
       </#if>
     </#list>
   </#if><#--if retObj.array-->  
