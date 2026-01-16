@@ -164,9 +164,9 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
           <#assign targetObjAttr = targetObj.getAttribute(targetAttrName)>
           <#assign sourceObj = model.findObjectByName(sourceObjName)>
           <#assign sourceObjAttr = sourceObj.getAttribute(sourceAttrName)>
-    Map<${modelbase4java.type_attribute_primitive(origObjIdAttr)}, ${java.nameType(sourceObj.name)}Info> ${java.nameVariable(sourceObj.name)}InfoIndexes = new HashMap<>();       
-    for (${java.nameType(origObjName)}Info row : ${java.nameVariable(inflector.pluralize(origObjName))}) {
-      ${java.nameVariable(sourceObj.name)}InfoIndexes.put(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}(), row);
+    Map<${modelbase4java.type_attribute_primitive(origObjIdAttr)}, ${java.nameType(sourceObj.name)}Query> ${java.nameVariable(sourceObj.name)}QueryIndexes = new HashMap<>();       
+    for (${java.nameType(origObjName)}Query row : ${java.nameVariable(inflector.pluralize(origObjName))}) {
+      ${java.nameVariable(sourceObj.name)}QueryIndexes.put(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}(), row);
     }
         </#if>   
       <#elseif origObjName == "" || opname != "">
@@ -189,8 +189,8 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     <#assign origObj = model.findObjectByName(origObjName)>
     <#assign origObjIdAttr = modelbase.get_id_attributes(origObj)?first>
     <#assign joinedObjAttrs = {(origObjName + "#" + origObjIdAttr.name): origObj}>
-    for (${java.nameType(origObjName)}Info row : ${java.nameVariable(inflector.pluralize(origObjName))}) {
-      ${java.nameType(usecase.name)}Result result = new ${java.nameType(usecase.name)}Result();  
+    for (${java.nameType(origObjName)}Query row : ${java.nameVariable(inflector.pluralize(origObjName))}) {
+      ${java.nameType(usecase.name)}Result result = new ${java.nameType(usecase.name)}Result();
       result.copyFrom${java.nameType(origObjName)}(row);
       retVal.add(result);
     <#list retObj.attributes as attr>
@@ -209,7 +209,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
         <#assign sourceObj = model.findObjectByName(sourceObjName)>
         <#assign sourceObjAttr = sourceObj.getAttribute(sourceAttrName)>
         <#assign joinedObjAttrs += {(sourceObjName + "#" + sourceAttrName): sourceObj}>
-      ${java.nameType(sourceObj.name)}Info found${java.nameType(sourceObj.name)} = ${java.nameType(sourceObj.name)}InfoIndexes.get(row.get${java.nameType(modelbase.get_attribute_sql_name(targetObjAttr))}());
+      ${java.nameType(sourceObj.name)}Query found${java.nameType(sourceObj.name)} = ${java.nameVariable(sourceObj.name)}QueryIndexes.get(row.get${java.nameType(modelbase.get_attribute_sql_name(targetObjAttr))}());
       if (found${java.nameType(sourceObj.name)} != null) {
         result.copyFrom${java.nameType(origObjName)}(found${java.nameType(sourceObj.name)});
       }

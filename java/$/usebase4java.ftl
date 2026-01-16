@@ -96,12 +96,12 @@ ${""?left_pad(indent)}${java.nameVariable(objname)}Query.set${java.nameType(mode
       <#local targetObjAttr = targetObj.getAttribute(targetAttrName)>
       <#local sourceObj = model.findObjectByName(sourceObjName)>
       <#local sourceObjAttr = sourceObj.getAttribute(sourceAttrName)>
-${""?left_pad(indent)}for (${java.nameType(targetObj.name)}Info row : ${java.nameVariable(inflector.pluralize(targetObj.name))}) {
+${""?left_pad(indent)}for (${java.nameType(targetObj.name)}Query row : ${java.nameVariable(inflector.pluralize(targetObj.name))}) {
 ${""?left_pad(indent)}  ${java.nameVariable(sourceObj.name)}Query.add${java.nameType(modelbase.get_attribute_sql_name(sourceObjAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(targetObjAttr))}());
 ${""?left_pad(indent)}}
     </#if>     
-${""?left_pad(indent)}Pagination<${java.nameType(objname)}> paged${java.nameType(inflector.pluralize(objname))} = ${java.nameVariable(objname)}Service.find${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);
-${""?left_pad(indent)}List<${java.nameType(objname)}> ${java.nameVariable(inflector.pluralize(objname))} = paged${java.nameType(inflector.pluralize(objname))}.getData();    
+${""?left_pad(indent)}Pagination<${java.nameType(objname)}Query> paged${java.nameType(inflector.pluralize(objname))} = ${java.nameVariable(objname)}Service.find${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);
+${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(inflector.pluralize(objname))} = paged${java.nameType(inflector.pluralize(objname))}.getData();    
   </#list>
   <#local slaveObjs = {}>
   <#list retObj.attributes as attr>
@@ -118,7 +118,7 @@ ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname
           <#local masterObjIdAttr = modelbase.get_id_attributes(masterObj)?first>
           <#list slaveObj.attributes as attr>
             <#if attr.type.name == masterObjName>
-${""?left_pad(indent)}for (${java.nameType(masterObjName)}Info row : ${java.nameVariable(inflector.pluralize(masterObjName))}) {
+${""?left_pad(indent)}for (${java.nameType(masterObjName)}Query row : ${java.nameVariable(inflector.pluralize(masterObjName))}) {
 ${""?left_pad(indent)}  ${java.nameVariable(objname)}Query.add${java.nameType(modelbase.get_attribute_sql_name(masterObjIdAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(masterObjIdAttr))}());
 ${""?left_pad(indent)}}
             </#if>
