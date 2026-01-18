@@ -32,11 +32,69 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   
   private static final Logger TRACER = LoggerFactory.getLogger(${java.nameType(usecase.name)}ServiceImpl.class);
 
+<#----------------------->
+<#-- 返回值需要的服务对象 -->
+<#----------------------->
+<#assign printedObjs = {}>
 <#assign aggregateChain = aggregateBuilder.build(retObj)>
 <#assign objRelsList = aggregateChain.build()>
 <#list aggregateChain.getObjects() as obj>
+  <#if printedObjs[obj.name]??><#continue></#if>
+  <#assign printedObjs += {obj.name:obj.name}>
 
   private ${java.nameType(obj.name)}Service ${java.nameVariable(obj.name)}Service;
+</#list>
+<#---------------------------------->
+<#-- 参数和返回值关联对象需要的服务对象 -->
+<#---------------------------------->
+<#assign associationChain = associationBuilder.build(paramObj, retObj)>
+<#assign objSize = associationChain.getAssociatingObjects()?size>
+<#if (objSize > 2)>
+<#list 1..(objSize-2) as index>
+  <#assign obj = associationChain.getAssociatingObjects()[index]>
+  <#if printedObjs[obj.name]??><#continue></#if>
+  <#assign printedObjs += {obj.name:obj.name}>
+
+  private ${java.nameType(obj.name)}Service ${java.nameVariable(obj.name)}Service;
+</#list>
+</#if>
+<#----------------------->
+<#-- 从参数推导的服务对象 -->
+<#----------------------->
+<#list paramObj.attributes as attr>
+  <#if !attr.isLabelled("original")><#continue></#if>
+  <#assign objname = attr.getLabelledOption("original", "object")>
+  <#if printedObjs[objname]??><#continue></#if>
+  <#assign printedObjs += {objname:objname}>
+
+  private ${java.nameType(objname)}Service ${java.nameVariable(objname)}Service;
+</#list>
+<#------------------------------->
+<#-- 显式的方法逻辑中用到的服务对象 -->
+<#------------------------------->
+<#list usecase.statements as stmt>
+  <#if stmt.operator?ends_with("+|")>
+    <#assign save = stmt>
+    <#if !save.saveObject??><#continue></#if>
+    <#assign saveObjName = save.saveObject.name?replace("#", "")>
+    <#if printedObjs[saveObjName]??><#continue></#if>
+    <#assign printedObjs += {saveObjName:saveObjName}>
+
+  private ${java.nameType(saveObjName)}Service ${java.nameVariable(saveObjName)}Service;    
+  <#elseif stmt.operator?ends_with("&|")>
+    <#assign assign = stmt>
+    <#assign value = assign.value>
+    <#assign origObjName = "">
+    <#if value.arrayValue??>
+      <#assign origObjName = value.arrayValue.getLabelledOption("original","object")>
+    <#elseif value.objectValue??>
+      <#assign origObjName = value.objectValue.getLabelledOption("original","object")>  
+    </#if>  
+    <#if origObjName == "" || printedObjs[origObjName]??><#continue></#if>
+    <#assign printedObjs += {origObjName:origObjName}>
+
+  private ${java.nameType(origObjName)}Service ${java.nameVariable(origObjName)}Service;    
+  </#if>
 </#list>
 
 <#if isArray == "true">

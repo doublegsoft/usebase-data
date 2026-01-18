@@ -67,6 +67,40 @@
   <#if !usecase.returnedObject??><#return></#if>
   <#local masterObjs = {}>
   <#local retObj = usecase.returnedObject>
+  <#-------------------------->
+  <#-- 通过关联链条生成查询语句 -->
+  <#-------------------------->
+  <#local associationChain = associationBuilder.build(paramObj, retObj)>
+  <#local objSize = associationChain.getAssociatingObjects()?size>
+  <#if associationChain.getAssociatingObjects()?size != 0>
+    <#local firstObjInChain = associationChain.getAssociatingObjects()[0]>
+  </#if>
+  <#if associationChain.getAssociatingObjects()?size != 0>
+    <#local lastObjInChain = associationChain.getAssociatingObjects()[objSize - 1]>
+  </#if>
+  <#local prevObjInChain = firstObjInChain>
+  <#list 1..(objSize-1) as index>
+    <#local obj = associationChain.getAssociatingObjects()[index]>
+    <#local masterObjs += {obj.name:obj.name}>
+${""?left_pad(indent)}// 查询【${modelbase.get_object_label(obj)}】集合对象       
+${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)}Query = new ${java.nameType(obj.name)}Query();
+${""?left_pad(indent)}${java.nameVariable(obj.name)}Query.setLimit(-1);
+    <#if index == 1>
+      <#local idAttrFirstObjInChain = modelbase.get_id_attributes(firstObjInChain)?first>
+${""?left_pad(indent)}${java.nameVariable(obj.name)}Query.${modelbase4java.name_setter(idAttrFirstObjInChain)}(${modelbase.get_attribute_sql_name(idAttrFirstObjInChain)});    
+    <#else>
+      <#local idAttrPrevObjInChain = modelbase.get_id_attributes(prevObjInChain)?first>
+${""?left_pad(indent)}for (${java.nameType(prevObjInChain.name)}Query row : ${java.nameVariable(inflector.pluralize(prevObjInChain.name))}) {
+${""?left_pad(indent)}  ${java.nameVariable(obj.name)}Query.add${java.nameType(modelbase.get_attribute_sql_name(idAttrPrevObjInChain))}(row.get${java.nameType(modelbase.get_attribute_sql_name(idAttrPrevObjInChain))}());
+${""?left_pad(indent)}}
+    </#if>
+${""?left_pad(indent)}Pagination<${java.nameType(obj.name)}Query> paged${java.nameType(inflector.pluralize(obj.name))} = ${java.nameVariable(obj.name)}Service.find${java.nameType(inflector.pluralize(obj.name))}(${java.nameVariable(obj.name)}Query);
+${""?left_pad(indent)}List<${java.nameType(obj.name)}Query> ${java.nameVariable(inflector.pluralize(obj.name))} = paged${java.nameType(inflector.pluralize(obj.name))}.getData();        
+    <#local prevObjInChain = obj>
+  </#list>
+  <#-------------------------->
+  <#-- 结果对象的自关联查询语句 -->
+  <#-------------------------->
   <#list retObj.attributes as attr>
     <#if !attr.isLabelled("original")><#continue></#if>
     <#local objname = attr.getLabelledOption("original", "object")>
@@ -423,7 +457,9 @@ ${""?left_pad(indent)}${java.nameVariable(objname)}Query = ${java.nameVariable(o
   <#elseif stmt.operator?ends_with("?|")>
 <@print_statement_comparison usecase=usecase stmt=stmt indent=indent />  
   <#elseif stmt.operator?ends_with("@|")>
-<@print_statement_invocation usecase=usecase stmt=stmt indent=indent />    
+<@print_statement_invocation usecase=usecase stmt=stmt indent=indent />
+  <#elseif stmt.operator?ends_with("&|")>
+<@print_statement_find usecase=usecase stmt=stmt indent=indent />    
   </#if>
 </#macro>
 
@@ -447,9 +483,11 @@ ${""?left_pad(indent)}}
     <#local saveObjName = save.saveObject.name?replace("#", "")>
     <#if saveObjName?starts_with("[]")>
       <#local saveObjName = saveObjName?replace("[]", "")>
-${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(inflector.pluralize(saveObjName))}(${java.nameVariable(inflector.pluralize(saveObjName))});    
+${""?left_pad(indent)}List<${java.nameType(saveObjName)}Query> ${java.nameVariable(save.variable)} = new ArrayList<>();
+${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(inflector.pluralize(saveObjName))}();    
     <#else>
-${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(saveObjName)}(${java.nameVariable(saveObjName)});
+${""?left_pad(indent)}${java.nameType(saveObjName)}Query ${java.nameVariable(save.variable)} = new ${java.nameType(saveObjName)}Query();
+${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(saveObjName)}(${java.nameVariable(save.variable)});
     </#if>
   </#if>
 </#macro>
@@ -513,4 +551,36 @@ ${""?left_pad(indent)}}
 <#macro print_statement_invocation usecase stmt indent>
   <#local invo = stmt.invocation>
 ${""?left_pad(indent)}${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);      
+</#macro>
+
+<#macro print_statement_find usecase stmt indent>
+  <#local assign = stmt>
+  <#local value = assign.value>
+  <#if value.arrayValue??>
+    <#local origObjName = value.arrayValue.getLabelledOption("original","object")>
+    <#local origObj = model.findObjectByName(origObjName)>
+${""?left_pad(indent)}// 查找【${modelbase.get_object_label(origObj)}】集合对象数据
+${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);
+    <#list value.arrayValue.getLabelledOptionAsList("unique","attribute") as attrName>
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.set${java.nameType(attrName)}(${java.nameVariable(attrName)});
+    </#list>  
+${""?left_pad(indent)}List<${java.nameType(origObjName)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();
+${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(assign.assignee)} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);    
+${""?left_pad(indent)}${java.nameVariable(assign.assignee)}.addAll(page${java.nameType(assign.assignee)}.getData());
+  <#elseif value.objectValue??>
+    <#local origObjName = value.objectValue.getLabelledOption("original","object")>
+    <#local origObj = model.findObjectByName(origObjName)>
+${""?left_pad(indent)}// 查找【${modelbase.get_object_label(origObj)}】对象数据
+${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);
+    <#list value.objectValue.getLabelledOptionAsList("unique","attribute") as attrName>
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.set${java.nameType(attrName)}(${java.nameVariable(attrName)});
+    </#list>  
+${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(inflector.pluralize(origObjName))} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);  
+${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(assign.assignee)} = null;
+${""?left_pad(indent)}if (!page${java.nameType(inflector.pluralize(origObjName))}.getData().isEmpty()) {
+${""?left_pad(indent)}  ${java.nameVariable(assign.assignee)} = page${java.nameType(inflector.pluralize(origObjName))}.getData().get(0);
+${""?left_pad(indent)}}
+  </#if>
 </#macro>
