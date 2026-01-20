@@ -563,7 +563,8 @@ ${""?left_pad(indent)}// 查找【${modelbase.get_object_label(origObj)}】集�
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
 ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);
     <#list value.arrayValue.getLabelledOptionAsList("unique","attribute") as attrName>
-${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.set${java.nameType(attrName)}(${java.nameVariable(attrName)});
+      <#local attr = model.findAttributeByNames(origObjName, attrName)>
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.${modelbase4java.name_setter(attr)}(${modelbase.get_attribute_sql_name(attr)});
     </#list>  
 ${""?left_pad(indent)}List<${java.nameType(origObjName)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();
 ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(assign.assignee)} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);    
@@ -575,7 +576,8 @@ ${""?left_pad(indent)}// 查找【${modelbase.get_object_label(origObj)}】对�
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
 ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);
     <#list value.objectValue.getLabelledOptionAsList("unique","attribute") as attrName>
-${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.set${java.nameType(attrName)}(${java.nameVariable(attrName)});
+      <#local attr = model.findAttributeByNames(origObjName, attrName)>
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.${modelbase4java.name_setter(attr)}(${modelbase.get_attribute_sql_name(attr)});
     </#list>  
 ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(inflector.pluralize(origObjName))} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);  
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(assign.assignee)} = null;

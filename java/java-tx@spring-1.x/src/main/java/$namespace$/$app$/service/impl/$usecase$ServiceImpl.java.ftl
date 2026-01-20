@@ -31,7 +31,6 @@ import ${namespace}.${java.nameType(app.name)?lower_case}.util.*;
 public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameType(usecase.name)}Service {
   
   private static final Logger TRACER = LoggerFactory.getLogger(${java.nameType(usecase.name)}ServiceImpl.class);
-
 <#----------------------->
 <#-- 返回值需要的服务对象 -->
 <#----------------------->
