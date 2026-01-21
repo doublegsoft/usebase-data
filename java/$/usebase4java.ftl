@@ -511,7 +511,10 @@ ${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.update${java.na
 ${""?left_pad(indent)}${type_variable(usecase, assign.assignee)} ${java.nameVariable(assign.assignee)} = ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);
     <#elseif assign.value.objectValue??>
       <#local objVal = assign.value.objectValue>
-      <#local uniqueObjName = objVal.getLabelledOption("unique", "object")>
+      <#local uniqueObjName = objVal.getLabelledOption("unique", "object")!"">
+      <#if uniqueObjName == "">
+        <#return>
+      </#if>
       <#local uniqueAttrNames = objVal.getLabelledOptionAsList("unique", "attribute")>
 ${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query unique${java.nameType(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
       <#list uniqueAttrNames as attrname>
@@ -558,6 +561,7 @@ ${""?left_pad(indent)}${java.nameVariable(invo.method)}(<#list invo.arguments as
   <#local value = assign.value>
   <#if value.arrayValue??>
     <#local origObjName = value.arrayValue.getLabelledOption("original","object")>
+    <#local message = value.arrayValue.getLabelledOption("required", "message")!"">
     <#local origObj = model.findObjectByName(origObjName)>
 ${""?left_pad(indent)}// 查找【${modelbase.get_object_label(origObj)}】集合对象数据
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
@@ -569,8 +573,12 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.${modelbase4java.na
 ${""?left_pad(indent)}List<${java.nameType(origObjName)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();
 ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(assign.assignee)} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);    
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee)}.addAll(page${java.nameType(assign.assignee)}.getData());
+${""?left_pad(indent)}if (page${java.nameType(inflector.pluralize(origObjName))}.getData().isEmpty()) {
+${""?left_pad(indent)}  throw new ServiceException(404, "${message}");
+${""?left_pad(indent)}}
   <#elseif value.objectValue??>
     <#local origObjName = value.objectValue.getLabelledOption("original","object")>
+    <#local message = value.objectValue.getLabelledOption("required", "message")!"">
     <#local origObj = model.findObjectByName(origObjName)>
 ${""?left_pad(indent)}// 查找【${modelbase.get_object_label(origObj)}】对象数据
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
@@ -583,6 +591,10 @@ ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(assign.assignee)} = null;
 ${""?left_pad(indent)}if (!page${java.nameType(inflector.pluralize(origObjName))}.getData().isEmpty()) {
 ${""?left_pad(indent)}  ${java.nameVariable(assign.assignee)} = page${java.nameType(inflector.pluralize(origObjName))}.getData().get(0);
+    <#if message != "">
+${""?left_pad(indent)}} else {
+${""?left_pad(indent)}  throw new ServiceException(404, "${message}");
+    </#if>
 ${""?left_pad(indent)}}
   </#if>
 </#macro>

@@ -161,14 +161,14 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#list paramObj.attributes as attr>
   <#if !attr.constraint.nullable>
     if (Strings.isBlank(${java.nameVariable(attr.name)})) {
-      throw new ServiceException("${modelbase.get_attribute_label(attr)}是必要参数，不能为空值");
+      throw new ServiceException(404, "${modelbase.get_attribute_label(attr)}是必要参数，不能为空值");
     }
   </#if>
 </#list>
 <#------------------>
 <#-- 数据唯一性校验 -->
 <#------------------>
-<#if paramObj.isLabelled("unique")>
+<#if paramObj.getLabelledOption("unique", "object")??>
   <#assign uniqueObjName = paramObj.getLabelledOption("unique", "object")>
   <#assign uniqueObj = model.findObjectByName(uniqueObjName)>
   <#assign uniqueObjIdAttr = modelbase.get_id_attributes(uniqueObj)?first>
