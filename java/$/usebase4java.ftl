@@ -365,7 +365,7 @@ ${""?left_pad(indent)}}
   <#list paramObj.attributes as attr>
     <#-- 寻找映射了领域对象的属性 -->
     <#if attr.isLabelled("original")>
-      <#local objname = attr.getLabelledOption("original", "object")>
+      <#local objname = attr.getLabelledOption("original", "object")!"">
       <#local isArray = attr.getLabelledOption("original", "array")!"false">
       <#if masterObjName == "">
         <#local masterObjName = objname>
@@ -382,7 +382,7 @@ ${""?left_pad(indent)}}
     <#-- 生成主对象的保存代码 -->
 ${""?left_pad(indent)}${typeName}Query ${varName}Query = new ${typeName}Query();
     <#list paramObj.attributes as attr>
-      <#if attr.isLabelled("original") && attr.getLabelledOption("original", "object") == masterObjName>
+      <#if attr.isLabelled("original") && (attr.getLabelledOption("original", "object")!"") == masterObjName>
         <#local targetAttr = attr.getLabelledOption("original", "attribute")>
 ${""?left_pad(indent)}${varName}Query.set${java.nameType(targetAttr)}(params.get${java.nameType(attr.name)}());
       </#if>

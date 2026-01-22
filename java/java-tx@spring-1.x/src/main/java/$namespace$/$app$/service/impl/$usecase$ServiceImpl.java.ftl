@@ -62,8 +62,8 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#----------------------->
 <#list paramObj.attributes as attr>
   <#if !attr.isLabelled("original")><#continue></#if>
-  <#assign objname = attr.getLabelledOption("original", "object")>
-  <#if printedObjs[objname]??><#continue></#if>
+  <#assign objname = attr.getLabelledOption("original", "object")!"">
+  <#if objname == "" || printedObjs[objname]??><#continue></#if>
   <#assign printedObjs += {objname:objname}>
 
   private ${java.nameType(objname)}Service ${java.nameVariable(objname)}Service;
