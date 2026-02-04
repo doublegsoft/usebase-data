@@ -481,12 +481,19 @@ ${""?left_pad(indent)}}
   <#local save = stmt>
   <#if save.saveObject??>
     <#local saveObjName = save.saveObject.name?replace("#", "")>
-    <#if saveObjName?starts_with("[]")>
+    <#if save.array == true>
       <#local saveObjName = saveObjName?replace("[]", "")>
 ${""?left_pad(indent)}List<${java.nameType(saveObjName)}Query> ${java.nameVariable(save.variable)} = new ArrayList<>();
-${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(inflector.pluralize(saveObjName))}();    
+${""?left_pad(indent)}// ${java.nameVariable(saveObjName)}Service.save${java.nameType(inflector.pluralize(saveObjName))}();    
     <#else>
 ${""?left_pad(indent)}${java.nameType(saveObjName)}Query ${java.nameVariable(save.variable)} = new ${java.nameType(saveObjName)}Query();
+  <#list save.saveObject.attributes as attr>
+    <#if attr.value??>
+${""?left_pad(indent)}${java.nameVariable(save.variable)}.set${java.nameType(attr.name)}(${usebase4java.get_attribute_default_value(attr)});    
+    <#else>
+${""?left_pad(indent)}${java.nameVariable(save.variable)}.set${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
+    </#if>
+  </#list>
 ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(saveObjName)}(${java.nameVariable(save.variable)});
     </#if>
   </#if>
@@ -598,3 +605,31 @@ ${""?left_pad(indent)}  throw new ServiceException(404, "${message}");
 ${""?left_pad(indent)}}
   </#if>
 </#macro>
+
+<#--
+ ### Gets the code-generation ready default value literal for an attribute.
+ ### <p>
+ ### This function inspects the type of the default value (String, Number, Boolean)
+ ### and formats it according to standard programming language syntax.
+ ### For example, it wraps strings in double quotes.
+ ###
+ ### @param attrWithValue
+ ###        the attribute definition object that holds the 'value' property
+ ###
+ ### @return
+ ###        the formatted literal string (e.g., "null", "\"hello\"", "123", "true")
+ -->
+<#function get_attribute_default_value attrWithValue>
+  <#if !attrWithValue.value??>
+    <#return "null">
+  </#if>
+  <#local value = attrWithValue.value>
+  <#if value.string??>
+    <#return "\"" + value.string + "\"">
+  <#elseif value.number??>
+    <#return value.number>
+  <#elseif value.boolean??>
+    <#return value.boolean>
+  </#if>  
+  <#return "null">
+</#function>

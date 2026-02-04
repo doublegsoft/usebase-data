@@ -242,6 +242,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     </#list>
     <#-- FIXME: 不是非常严谨 -->
     <#assign masterObjAttr = retObj.attributes?first>
+    <#assign masterObjName = (retObj.attributes?first).getLabelledOption("original", "object")!"">
     <#assign origObjName = masterObjAttr.getLabelledOption("original", "object")!"">
     <#assign origObj = model.findObjectByName(origObjName)>
     <#assign origObjIdAttr = modelbase.get_id_attributes(origObj)?first>
@@ -254,6 +255,8 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
       <#if !attr.isLabelled("original")><#continue></#if>
       <#assign origObjName = attr.getLabelledOption("original", "object")>
       <#assign origAttrName = attr.getLabelledOption("original", "attribute")>
+      <#-- 首要对象需要忽略掉，应为链接其他对象的算法就在首要对象的循环体中 -->
+      <#if origObjName == masterObjName><#continue></#if>
       <#if joinedObjAttrs[(origObjName + "#" + origAttrName)]??><#continue></#if>
       <#if attr.getLabelledOption("conjunction", "target_attribute")??>
         <#assign targetObjName = attr.getLabelledOption("conjunction", "target_object")>
@@ -274,12 +277,19 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     </#list>
     }
   <#else>
+    <#---------------------------------------------------->
+    <#-- 逐个拼接（Copy-From）单个对象的查询结果，单个或者集合 -->
+    <#---------------------------------------------------->
     <#list retObj.attributes as attr>
       <#assign origobj = attr.getLabelledOption("original", "object")!"">
       <#assign opname = attr.getLabelledOption("original", "operator")!"">
       <#if origobj != "" && !retObjs[origobj]?? && opname == "">
         <#assign retObjs += {origobj:origobj}>
+        <#if attr.type.collection>
+    retVal.copyFrom${java.nameType(inflector.pluralize(origobj))}(${java.nameVariable(inflector.pluralize(origobj))});    
+        <#else>
     retVal.copyFrom${java.nameType(origobj)}(${java.nameVariable(origobj)});
+        </#if>
       <#elseif origobj == "" || opname != "">
     retVal.copyFrom${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
       </#if>
