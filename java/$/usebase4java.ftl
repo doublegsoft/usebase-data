@@ -483,8 +483,11 @@ ${""?left_pad(indent)}}
     <#local saveObjName = save.saveObject.name?replace("#", "")>
     <#if save.array == true>
       <#local saveObjName = saveObjName?replace("[]", "")>
-${""?left_pad(indent)}List<${java.nameType(saveObjName)}Query> ${java.nameVariable(save.variable)} = new ArrayList<>();
-${""?left_pad(indent)}// ${java.nameVariable(saveObjName)}Service.save${java.nameType(inflector.pluralize(saveObjName))}();    
+<#--  ${""?left_pad(indent)}List<${java.nameType(saveObjName)}Query> ${java.nameVariable(save.variable)} = new ArrayList<>();  -->
+${""?left_pad(indent)}for (${java.nameType(saveObjName)}Query row : ${java.nameVariable(save.variable)}) {
+${""?left_pad(indent)}
+${""?left_pad(indent)}}
+${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(inflector.pluralize(saveObjName))}(${java.nameVariable(save.variable)});    
     <#else>
 ${""?left_pad(indent)}${java.nameType(saveObjName)}Query ${java.nameVariable(save.variable)} = new ${java.nameType(saveObjName)}Query();
   <#list save.saveObject.attributes as attr>
@@ -517,29 +520,12 @@ ${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.update${java.na
       <#local invo = assign.value.invocation>
 ${""?left_pad(indent)}${type_variable(usecase, assign.assignee)} ${java.nameVariable(assign.assignee)} = ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);
     <#elseif assign.value.objectValue??>
-      <#local objVal = assign.value.objectValue>
-      <#local uniqueObjName = objVal.getLabelledOption("unique", "object")!"">
-      <#if uniqueObjName == "">
-        <#return>
-      </#if>
-      <#local uniqueAttrNames = objVal.getLabelledOptionAsList("unique", "attribute")>
-${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query unique${java.nameType(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
-      <#list uniqueAttrNames as attrname>
-        <#local uniqueAttr = apiModel.findAttributeByNames(objVal.name, attrname)>
-        <#if uniqueAttr.alias??>
-${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(uniqueAttr.alias)}(${java.nameVariable(attrname)});
-        <#else>
-${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});        
-        </#if>
-      </#list>
-${""?left_pad(indent)}${java.nameType(uniqueObjName)} ${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
-      <#if objVal.isLabelled("required")>    
-${""?left_pad(indent)}if (${java.nameVariable(assign.assignee)} == null) {
-${""?left_pad(indent)}  throw new ServiceException("${objVal.getLabelledOption("required", "message")}")
-${""?left_pad(indent)}}
-      </#if>
+<@print_assignment_simple_for_object usecase=usecase assign=assign indent=indent />
+    <#elseif assign.value.arrayValue??>
+<@print_assignment_simple_for_array usecase=usecase assign=assign indent=indent />      
     </#if>
   <#else>
+${""?left_pad(indent)}// 其他赋值操作暂不支持
   </#if>
 </#macro>
 
@@ -606,6 +592,13 @@ ${""?left_pad(indent)}}
   </#if>
 </#macro>
 
+<#macro print_statements_for_value_array value indent>
+  <#if value.arrayValue??>
+    <#local origObjName = value.arrayValue.getLabelledOption("original","object")>
+    <#local origObj = model.findObjectByName(origObjName)>
+  </#if>
+</#macro>
+
 <#--
  ### Gets the code-generation ready default value literal for an attribute.
  ### <p>
@@ -633,3 +626,152 @@ ${""?left_pad(indent)}}
   </#if>  
   <#return "null">
 </#function>
+
+<#--
+ ### Generates code to retrieve a single, unique object instance based on specific criteria
+ ### and assigns it to a variable.
+ ### <p>
+ ### This macro handles the logic for "Reference Assignment". Instead of creating a new object,
+ ### it looks up an existing entity using attributes defined in the "unique" label options.
+ ### It automates the creation of a Query DTO, population of search criteria, service invocation,
+ ### and optional existence validation.
+ ###
+ ### Logic Flow:
+ ### 1. Identify the unique object type from "unique.object" label.
+ ### 2. Construct a Query object (e.g., UserQuery).
+ ### 3. Populate the Query object with values from the assignment source.
+ ### 4. Call the Service layer to retrieve the object (e.g., userService.getUser(...)).
+ ### 5. (Optional) Generate a null-check if the object is labeled "required".
+ ###
+ ### @param usecase
+ ###        the current use case definition
+ ### @param assign
+ ###        the assignment statement node (containing assignee and value)
+ ### @param indent
+ ###        the indentation level for code generation
+ -->
+<#macro print_assignment_simple_for_object usecase assign indent>
+  <#local objVal = assign.value.objectValue>
+  <#-- [Step 1] 获取唯一性约束配置 -->
+  <#-- 尝试获取 "unique" 标签下的 "object" 选项，这代表要查找的领域对象名称 -->
+  <#local uniqueObjName = objVal.getLabelledOption("unique", "object")!"">
+  <#if uniqueObjName == "">
+    <#--
+      ### 如果没有定义 "unique.object"，则无法确定如何查找对象。
+      ### 这种情况通常意味着元数据配置不完整，或者这不是一个查找赋值操作。
+      ### 直接返回，不生成任何代码。
+      -->
+    <#return>
+  </#if>
+  <#-- [Step 2] 获取用于查找的属性列表 (例如: ["code", "type"]) -->
+  <#local uniqueAttrNames = objVal.getLabelledOptionAsList("unique", "attribute")>
+  <#-- [Step 3] 生成查询对象初始化代码 -->
+${""?left_pad(indent)}// [Generator] 准备查询条件: 根据唯一键查找 ${uniqueObjName}
+${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query unique${java.nameType(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
+  <#-- [Step 4] 填充查询条件 -->
+  <#list uniqueAttrNames as attrname>
+    <#-- 在 API 模型中查找属性定义，以便处理别名(Alias)情况 -->
+    <#local uniqueAttr = apiModel.findAttributeByNames(objVal.name, attrname)>
+    <#if uniqueAttr.alias??>
+      <#-- 如果属性有别名，使用别名生成 Setter (常见于表连接或视图字段) -->
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(uniqueAttr.alias)}(${java.nameVariable(attrname)});
+    <#else>
+      <#-- 使用标准属性名生成 Setter -->
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});        
+    </#if>
+  </#list>
+  <#-- [Step 5] 调用 Service 执行查找并赋值 -->
+${""?left_pad(indent)}${java.nameType(uniqueObjName)} ${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
+  <#-- [Step 6] (可选) 生成非空校验逻辑 -->
+  <#if objVal.isLabelled("required")>    
+${""?left_pad(indent)}// [Validation] 校验对象是否存在
+${""?left_pad(indent)}if (${java.nameVariable(assign.assignee)} == null) {
+${""?left_pad(indent)}  throw new ServiceException("${objVal.getLabelledOption("required", "message")}")
+${""?left_pad(indent)}}
+  </#if>
+</#macro>
+
+<#--
+ ### Generates code for assigning values to an array/list variable.
+ ### <p>
+ ### This macro handles the transformation of a source collection into a target collection.
+ ### It iterates through the source list defined by the "original.source" label,
+ ### instantiates target objects, and populates the result list.
+ ###
+ ### Logic Flow:
+ ### 1. Metadata Extraction: Identifies the source variable name and the target object type.
+ ### 2. List Initialization: Generates code to create a new ArrayList for the result.
+ ### 3. Iteration: Generates a for-loop to traverse the source collection.
+ ### 4. Item Creation: Inside the loop, creates instances of the target object.
+ ### 5. Attribute Mapping: Currently initializes attributes (logic shows setting to null, possibly a placeholder).
+ ### 6. Collection Building: Adds the new item to the result list.
+ ### 7. Unique/Lookup Preparation: (At the end) Prepares metadata for unique object lookups if configured.
+ ###
+ ### @param usecase
+ ###        the current use case definition
+ ### @param assign
+ ###        the assignment statement node
+ ### @param indent
+ ###        the indentation level
+ -->
+<#macro print_assignment_simple_for_array usecase assign indent>
+  <#local arrayValObj = assign.value.arrayValue>
+  <#-- [Step 1] 获取源数据配置 -->
+  <#-- 获取源变量名 (例如: "&orders") -->
+  <#local arrayValSrc = arrayValObj.getLabelledOption("original","source")>
+  <#-- 获取在数据模型中的目标对象类型 (例如: "Order") -->
+  <#local arrayValDataObj = model.findObjectByName(arrayValObj.getLabelledOption("original","object"))>
+  <#-- [Step 2] 解析源变量类型信息 -->
+  <#local varDef = usecase.getVariable(arrayValSrc)>
+  <#local varComponentType = varDef.type.componentType.name>
+  <#-- TODO: 是否需要从可计算的属性中，衍生出其他集合属性 (保留原有的 TODO) -->
+${""?left_pad(indent)}// [Generator] 处理数组对象赋值: 从 ${arrayValSrc} 转换列表
+${""?left_pad(indent)}List<${java.nameType(arrayValDataObj.name)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();
+${""?left_pad(indent)}// 遍历源集合
+${""?left_pad(indent)}for (${java.nameType(varComponentType)}Query row : ${java.nameVariable(arrayValSrc)}) {
+${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query item = new ${java.nameType(arrayValDataObj.name)}Query();
+  <#-- [Step 3] 属性初始化/映射 -->
+  <#list arrayValObj.attributes as attr>
+    <#local attrInDataObj = arrayValDataObj.getAttribute(attr.name)>
+    <#-- 
+     ### 注意：此处代码目前生成 set...(null)。
+     ### 通常这里应该生成类似 item.setXxx(row.getXxx()) 的代码。
+     ### 如果是刻意置空，说明是初始化；如果是待实现，建议检查此处逻辑。
+     -->
+    <#if attr.value??>
+<@print_attribute_set_for_value loopVar="row" objVar="item" attrInDataObj=attrInDataObj value=attr.value indent=indent+2 />
+    <#else>
+${""?left_pad(indent)}  item.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(null); 
+    </#if>
+  </#list>
+${""?left_pad(indent)}  ${java.nameVariable(assign.assignee)}.add(item);
+${""?left_pad(indent)}}
+  <#-- [Step 4] 唯一性/引用查找元数据准备 (逻辑似乎未完结) -->
+  <#local arrVal = assign.value.arrayValue>
+  <#local uniqueObjName = arrVal.getLabelledOption("unique", "object")!"">
+  <#if uniqueObjName == "">
+    <#return>
+  </#if>
+  <#local uniqueAttrNames = arrVal.getLabelledOptionAsList("unique", "attribute")>
+  <#-- 此处宏结束，后续可能利用 uniqueObjName 和 uniqueAttrNames 生成查找逻辑 -->
+</#macro>
+
+<#macro print_attribute_set_for_value loopVar objVar attrInDataObj value indent>
+  <#if value.string??>
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}("${value.string}");
+  <#elseif value.number??>
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(new BigDecimal("${value.number}"));
+  <#elseif value.boolean??>
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${value.boolean});
+  <#elseif value.variable??>
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${loopVar}.get${java.nameType(value.variable)}());
+  <#elseif value.calcExpr??>
+    <#-- TODO: 表达式处理，核心中的核心 -->
+    <#local leftOperand = value.calcExpr.leftOperand>
+    <#local rightOperand = value.calcExpr.rightOperand>
+${""?left_pad(indent)}// 处理计算表达式：${value.originalText}
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(null);
+  <#else>
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(null);
+  </#if>
+</#macro>
