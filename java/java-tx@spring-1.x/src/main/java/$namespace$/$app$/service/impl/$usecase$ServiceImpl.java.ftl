@@ -80,19 +80,42 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     <#assign printedObjs += {saveObjName:saveObjName}>
 
   private ${java.nameType(saveObjName)}Service ${java.nameVariable(saveObjName)}Service;    
-  <#elseif stmt.operator?ends_with("&|")>
+  <#elseif stmt.operator?ends_with("&|") || stmt.operator?ends_with(":|")>
     <#assign assign = stmt>
     <#assign value = assign.value>
     <#assign origObjName = "">
     <#if value.arrayValue??>
       <#assign origObjName = value.arrayValue.getLabelledOption("original","object")>
+      <#list value.arrayValue.attributes as attr>
+        <#if attr.value?? && attr.value.calcExpr??>
+          <#assign operands = attr.value.calcExpr.operands>
+          <#list operands as operand>
+            <#assign opOrigObjName = operand.objectValue.getLabelledOption("original", "object")>
+            <#if opOrigObjName == "" || printedObjs[opOrigObjName]??><#continue></#if>
+            <#assign printedObjs += {opOrigObjName:opOrigObjName}>
+            
+  private ${java.nameType(opOrigObjName)}Service ${java.nameVariable(opOrigObjName)}Service;  
+          </#list> 
+        </#if>
+      </#list>
     <#elseif value.objectValue??>
       <#assign origObjName = value.objectValue.getLabelledOption("original","object")>  
+      <#list value.objectValue.attributes as attr>
+        <#if attr.value?? && attr.value.calcExpr??>
+          <#list operands as operand>
+            <#assign opOrigObjName = operand.objectValue.getLabelledOption("original", "object")>
+            <#if opOrigObjName == "" || printedObjs[opOrigObjName]??><#continue></#if>
+            <#assign printedObjs += {opOrigObjName:opOrigObjName}>
+
+  private ${java.nameType(opOrigObjName)}Service ${java.nameVariable(opOrigObjName)}Service;  
+          </#list> 
+        </#if>
+      </#list>
     </#if>  
     <#if origObjName == "" || printedObjs[origObjName]??><#continue></#if>
     <#assign printedObjs += {origObjName:origObjName}>
 
-  private ${java.nameType(origObjName)}Service ${java.nameVariable(origObjName)}Service;    
+  private ${java.nameType(origObjName)}Service ${java.nameVariable(origObjName)}Service;  
   </#if>
 </#list>
 
