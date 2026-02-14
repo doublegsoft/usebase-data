@@ -767,34 +767,30 @@ ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_n
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${loopVar}.get${java.nameType(value.variable)}());
   <#elseif value.calcExpr??>
     <#-- TODO: 表达式处理，核心中的核心 -->
+${""?left_pad(indent)}// 处理计算表达式：${value.originalText}
     <#local operands = value.calcExpr.operands>
     <#list operands as operand>
       <#local originalObjName = operand.objectValue.getLabelledOption("original", "object")>
-      <#local uniqueObjNames = operand.objectValue.getLabelledOptionAsList("unique", "object")>
-      <#local uniqueAttrNames = operand.objectValue.getLabelledOptionAsList("unique", "attribute")>
-      <#local uniqueAttrTypes = operand.objectValue.getLabelledOptionAsList("unique", "type")>
-      <#local uniqueAttrVals = operand.objectValue.getLabelledOptionAsList("unique", "value")>
+      <#local operandUniques = usebase.get_operand_unique_labels(operand)>
 ${""?left_pad(indent)}${java.nameType(originalObjName)}Query ${java.nameVariable(originalObjName)}Query = new ${java.nameType(originalObjName)}Query();
-      <#list 0..(uniqueAttrTypes?size - 1) as i>
-        <#local uniqueObjName = uniqueObjNames[i]>
-        <#local uniqueAttrName = uniqueAttrNames[i]>
-        <#local uniqueAttrType = uniqueAttrTypes[i]>
-        <#local uniqueAttrVal = uniqueAttrVals[i]>
-        <#if uniqueAttrType == uniqueAttrVal>
-${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(uniqueAttrName)}(row.get${java.nameType(uniqueAttrVal)}());
+      <#list operandUniques as operandUnique>
+        <#if operandUnique.attrtype == operandUnique.value>
+${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(operandUnique.attrname)}(row.get${java.nameType(operandUnique.value)}());
+        <#elseif operandUnique.attrtype == operandUnique.attrname>
+${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(operandUnique.attrname)}(row.get${java.nameType(operandUnique.attrname)}());        
         <#else>
-          <#if uniqueAttrType == "string">
-${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(uniqueAttrName)}("${uniqueAttrVal}");
-          <#elseif uniqueAttrType == "number">
-${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(uniqueAttrName)}(new BigDecimal("${uniqueAttrVal}"));
-          <#elseif uniqueAttrType == "boolean">
-${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(uniqueAttrName)}(${uniqueAttrVal});
+          <#if operandUnique.attrtype == "string">
+${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(operandUnique.attrname)}("${operandUnique.value}");
+          <#elseif operandUnique.attrtype == "number">
+${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(operandUnique.attrname)}(new BigDecimal("${operandUnique.value}"));
+          <#elseif operandUnique.attrtype == "boolean">
+${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(operandUnique.attrname)}(${operandUnique.value});
           </#if>
         </#if>
       </#list> 
-${""?left_pad(indent)}${java.nameVariable(originalObjName)}Service.get${java.nameType(originalObjName)}(${java.nameVariable(originalObjName)}Query);       
+${""?left_pad(indent)}${java.nameType(originalObjName)}Query found${java.nameType(originalObjName)} = ${java.nameVariable(originalObjName)}Service.get${java.nameType(originalObjName)}(${java.nameVariable(originalObjName)}Query);       
     </#list>
-${""?left_pad(indent)}// 处理计算表达式：${value.originalText}
+${""?left_pad(indent)}// TODO: 开始计算${modelbase.get_attribute_sql_name(attrInDataObj)}
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(null);
   <#else>
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(null);

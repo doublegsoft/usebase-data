@@ -249,3 +249,116 @@
     </#if>  
   </#list>
 </#function>
+
+<#--
+ ### Analyzes the statements within a use case to extract all referenced Domain Object Definitions.
+ ### <p>
+ ### This function traverses the execution logic (statements) of a use case. It identifies
+ ### which business objects are being persisted, assigned, or used in calculations.
+ ### Unlike similar functions that might just return names, this function resolves the names
+ ### against the global 'model' to return actual ObjectDefinition instances.
+ ###
+ ### Logic Flow:
+ ### 1. Statement Traversal: Iterates through all statements in the use case.
+ ### 2. Persistence Analysis (+|): Extracts the object being saved, stripping instance markers (e.g., "User#1" -> "User").
+ ### 3. Assignment Analysis (&| or :|):
+ ###    a. Identifies the source object type via the "original.object" label.
+ ###    b. Deep Scan: Checks attributes for calculation expressions (e.g., 'amount = usage * rate').
+ ###       It extracts objects involved in the calculation operands.
+ ### 4. Model Resolution: Converts the collected set of unique object names into actual
+ ###    ObjectDefinition instances using 'model.findObjectByName'.
+ ###
+ ### @param usecase
+ ###        the use case definition containing the statements
+ ###
+ ### @return
+ ###        a sequence of ObjectDefinition instances found in the statements
+ -->
+<#function get_objects_from_statements usecase>
+  <#local objnames = {}>
+  <#list usecase.statements as stmt>
+    <#if stmt.operator?ends_with("+|")>
+      <#local save = stmt>
+      <#if !save.saveObject??><#continue></#if>
+      <#local saveObjName = save.saveObject.name?replace("#", "")>
+      <#local objnames += {saveObjName:saveObjName}>
+    <#elseif stmt.operator?ends_with("&|") || stmt.operator?ends_with(":|")>
+      <#local assign = stmt>
+      <#local value = assign.value>
+      <#local origObjName = "">
+      <#if value.arrayValue??>
+        <#local origObjName = value.arrayValue.getLabelledOption("original","object")>
+        <#list value.arrayValue.attributes as attr>
+          <#if attr.value?? && attr.value.calcExpr??>
+            <#local operands = attr.value.calcExpr.operands>
+            <#list operands as operand>
+              <#local opOrigObjName = operand.objectValue.getLabelledOption("original", "object")>
+              <#if opOrigObjName == ""><#continue></#if>
+              <#local objnames += {opOrigObjName:opOrigObjName}>
+            </#list> 
+          </#if>
+        </#list>
+      <#elseif value.objectValue??>
+        <#local origObjName = value.objectValue.getLabelledOption("original","object")>  
+        <#list value.objectValue.attributes as attr>
+          <#if attr.value?? && attr.value.calcExpr??>
+            <#list operands as operand>
+              <#local opOrigObjName = operand.objectValue.getLabelledOption("original", "object")>
+              <#if opOrigObjName == ""><#continue></#if>
+              <#local objnames += {opOrigObjName:opOrigObjName}>
+            </#list> 
+          </#if>
+        </#list>
+      </#if>  
+      <#if origObjName == ""><#continue></#if>
+      <#local objnames += {origObjName:origObjName}>
+    </#if>
+  </#list>
+  <#local ret = []>
+  <#list objnames?values as objname>
+    <#if model.findObjectByName(objname)??>
+      <#local ret += [model.findObjectByName(objname)]>
+    </#if>
+  </#list>
+  <#return ret>
+</#function>
+
+<#--
+ ### Extracts and structures the unique lookup criteria from an operand definition.
+ ### <p>
+ ### This function is used when an operand in an expression refers to a specific, unique object instance
+ ### (e.g., a lookup based on a unique key). It retrieves the metadata stored in the "unique" label
+ ### options (Object Name, Attribute Name, Type, and Value).
+ ###
+ ### Since the options are stored as parallel lists (e.g., list of attrs, list of values),
+ ### this function "zips" them together into a list of structured maps for easier consumption
+ ### in templates.
+ ###
+ ### Data Structure Return Example:
+ ### [
+ ###   { "objname": "User", "attrname": "id", "attrtype": "String", "value": "u001" },
+ ###   { "objname": "User", "attrname": "status", "attrtype": "String", "value": "ACTIVE" }
+ ### ]
+ ###
+ ### @param operand
+ ###        the operand object from a calculation expression or assignment
+ ###
+ ### @return
+ ###        a sequence of maps, where each map contains the details of a unique lookup constraint
+ -->
+<#function get_operand_unique_labels operand>
+  <#local ret = []>
+  <#local uniqueObjNames = operand.objectValue.getLabelledOptionAsList("unique", "object")>
+  <#local uniqueAttrNames = operand.objectValue.getLabelledOptionAsList("unique", "attribute")>
+  <#local uniqueAttrTypes = operand.objectValue.getLabelledOptionAsList("unique", "type")>
+  <#local uniqueAttrVals = operand.objectValue.getLabelledOptionAsList("unique", "value")>
+  <#list 0..(uniqueObjNames?size - 1) as idx>
+    <#local ret += [{
+      "objname": uniqueObjNames[idx],
+      "attrname": uniqueAttrNames[idx],
+      "attrtype": uniqueAttrTypes[idx],
+      "value": uniqueAttrVals[idx]
+    }]>
+  </#list>
+  <#return ret>
+</#function>
