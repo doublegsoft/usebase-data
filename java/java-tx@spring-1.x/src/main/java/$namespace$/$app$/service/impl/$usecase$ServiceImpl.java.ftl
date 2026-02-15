@@ -192,24 +192,49 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
       <#assign origObjName = attr.getLabelledOption("original", "object")!"">
       <#assign opname = attr.getLabelledOption("original", "operator")!"">
       <#if origObjName != "" && !retObjs[origObjName]?? && opname == "">
+        <#--
+         ### 处理来自原始对象的属性（非计算字段）                                 
+         ###                                                     
+         ### 三个必要条件（AND关系）：                                
+         ### 1. origObjName != "" : 该属性有明确的原始对象来源          
+         ### 2. !retObjs[origObjName]?? : 该原始对象还未被处理过（防重复）
+         ### 3. opname == "" : 不是操作符生成的字段（是直接映射字段）       
+         ###                                                         
+         ### 典型场景：                                             
+         ### - 查询用户列表时，每个用户关联一个部门对象              
+         ### - 查询订单列表时，每个订单关联多个订单项对象            
+         ### - 查询文章列表时，每个文章关联一个作者对象             
+         -->
         <#assign origObj = model.findObjectByName(origObjName)>
         <#assign origObjIdAttr = modelbase.get_id_attributes(origObj)?first>
         <#assign retObjs += {origObjName:origObjName}>
         <#if attr.getLabelledOption("conjunction", "target_attribute")??>
-          <#assign targetObjName = attr.getLabelledOption("conjunction", "target_object")>
-          <#assign targetAttrName = attr.getLabelledOption("conjunction", "target_attribute")>
-          <#assign sourceObjName = attr.getLabelledOption("conjunction", "source_object")>
-          <#assign sourceAttrName = attr.getLabelledOption("conjunction", "source_attribute")>
-          <#assign targetObj = model.findObjectByName(targetObjName)>
-          <#assign targetObjAttr = targetObj.getAttribute(targetAttrName)>
-          <#assign sourceObj = model.findObjectByName(sourceObjName)>
-          <#assign sourceObjAttr = sourceObj.getAttribute(sourceAttrName)>
-    Map<${modelbase4java.type_attribute_primitive(origObjIdAttr)}, ${java.nameType(sourceObj.name)}Query> ${java.nameVariable(sourceObj.name)}QueryIndexes = new HashMap<>();       
+          <#assign attrConj = usebase.get_attribute_conjunction(attr)>
+    Map<${modelbase4java.type_attribute_primitive(origObjIdAttr)}, ${java.nameType(attrConj.sourceObjName)}Query> ${java.nameVariable(attrConj.sourceObjName)}QueryIndexes = new HashMap<>();       
     for (${java.nameType(origObjName)}Query row : ${java.nameVariable(inflector.pluralize(origObjName))}) {
-      ${java.nameVariable(sourceObj.name)}QueryIndexes.put(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}(), row);
+      ${java.nameVariable(attrConj.sourceObjName)}QueryIndexes.put(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}(), row);
     }
         </#if>   
       <#elseif origObjName == "" || opname != "">
+        <#--
+         ### 处理计算字段或自定义操作的结果拼接
+         ### 
+         ### 触发条件：
+         ### 1. origObjName == "" : 该属性不是从某个原始对象直接映射来的
+         ### 2. opname != "" : 该属性是通过某种操作(如聚合函数、计算表达式)得到的
+         ### 
+         ### 应用场景：
+         ### - 聚合统计：如 count(*)、sum(amount)、avg(score) 等
+         ### - 计算字段：如 price * quantity、concat(first_name, last_name) 等
+         ### - 自定义函数：如 custom_func(field1, field2) 等
+         ### 
+         ### 处理逻辑：
+         ### 这些计算字段的数据结构是 List<Map<String,Object>>，需要：
+         ### 1. 遍历每一行计算结果
+         ### 2. 通过ID找到对应的主结果对象
+         ### 3. 将计算值设置到该结果对象的对应属性中
+         -->
+    // 拼接计算字段 ${attr.name} 到结果集
     for (Map<String,Object> row : ${java.nameVariable(inflector.pluralize(attr.name))}) {
       Integer idx = idIndexes.get(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}());
       if (idx == null) {
@@ -223,7 +248,9 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     }
       </#if>  
     </#list>
-    <#-- FIXME: 不是非常严谨 -->
+    <#------------------------------------------->
+    <#-- 返回对象的第一个属性的原始对象作为【主对象】 -->
+    <#------------------------------------------->
     <#assign masterObjAttr = retObj.attributes?first>
     <#assign masterObjName = (retObj.attributes?first).getLabelledOption("original", "object")!"">
     <#assign origObjName = masterObjAttr.getLabelledOption("original", "object")!"">
@@ -241,20 +268,14 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
       <#-- 首要对象需要忽略掉，应为链接其他对象的算法就在首要对象的循环体中 -->
       <#if origObjName == masterObjName><#continue></#if>
       <#if joinedObjAttrs[(origObjName + "#" + origAttrName)]??><#continue></#if>
+      <#-- 判断属性是否定义连接 -->
       <#if attr.getLabelledOption("conjunction", "target_attribute")??>
-        <#assign targetObjName = attr.getLabelledOption("conjunction", "target_object")>
-        <#assign targetAttrName = attr.getLabelledOption("conjunction", "target_attribute")>
-        <#assign sourceObjName = attr.getLabelledOption("conjunction", "source_object")>
-        <#assign sourceAttrName = attr.getLabelledOption("conjunction", "source_attribute")>
-        <#if joinedObjAttrs[(sourceObjName + "#" + sourceAttrName)]??><#continue></#if>
-        <#assign targetObj = model.findObjectByName(targetObjName)>
-        <#assign targetObjAttr = targetObj.getAttribute(targetAttrName)>
-        <#assign sourceObj = model.findObjectByName(sourceObjName)>
-        <#assign sourceObjAttr = sourceObj.getAttribute(sourceAttrName)>
-        <#assign joinedObjAttrs += {(sourceObjName + "#" + sourceAttrName): sourceObj}>
-      ${java.nameType(sourceObj.name)}Query found${java.nameType(sourceObj.name)} = ${java.nameVariable(sourceObj.name)}QueryIndexes.get(row.get${java.nameType(modelbase.get_attribute_sql_name(targetObjAttr))}());
-      if (found${java.nameType(sourceObj.name)} != null) {
-        result.copyFrom${java.nameType(origObjName)}(found${java.nameType(sourceObj.name)});
+        <#assign attrConj = usebase.get_attribute_conjunction(attr)>
+        <#if joinedObjAttrs[(attrConj.sourceObjName + "#" + attrConj.sourceAttrName)]??><#continue></#if>
+        <#assign joinedObjAttrs += {(attrConj.sourceObjName + "#" + attrConj.sourceAttrName): attrConj.sourceObj}>
+      ${java.nameType(attrConj.sourceObjName)}Query found${java.nameType(attrConj.sourceObjName)} = ${java.nameVariable(attrConj.sourceObjName)}QueryIndexes.get(row.get${java.nameType(modelbase.get_attribute_sql_name(attrConj.targetAttr))}());
+      if (found${java.nameType(attrConj.sourceObjName)} != null) {
+        result.copyFrom${java.nameType(origObjName)}(found${java.nameType(attrConj.sourceObjName)});
       }
       </#if>  
     </#list>

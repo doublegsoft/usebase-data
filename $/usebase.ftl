@@ -362,3 +362,54 @@
   </#list>
   <#return ret>
 </#function>
+
+<#--
+ ### Resolves the metadata for a Many-to-Many "Conjunction" relationship.
+ ### <p>
+ ### This function interprets the "conjunction" label options on an attribute to model
+ ### an intermediate relationship (Junction Table). It resolves the raw configuration strings
+ ### into actual Model Objects and Attributes, while also preserving the raw names for convenience.
+ ###
+ ### Context Example:
+ ### Student (Source) <-> Enrollment (Conjunction) <-> Course (Target)
+ ###
+ ### Return Map Structure:
+ ### {
+ ###   "targetObj": ObjectDefinition,       // The resolved Target entity
+ ###   "targetAttr": AttributeDefinition,   // The FK attribute in the conjunction table pointing to Target
+ ###   "sourceObj": ObjectDefinition,       // The resolved Source entity
+ ###   "sourceAttr": AttributeDefinition,   // The FK attribute in the conjunction table pointing to Source
+ ###   "targetObjName": String,             // Raw name of target object
+ ###   "targetAttrName": String,            // Raw name of target FK attribute
+ ###   "sourceObjName": String,             // Raw name of source object
+ ###   "sourceAttrName": String             // Raw name of source FK attribute
+ ### }
+ ###
+ ### @param attr
+ ###        the attribute definition that defines the many-to-many relationship
+ ###
+ ### @return
+ ###        a comprehensive map containing both resolved objects and raw configuration names
+ -->
+<#function get_attribute_conjunction attr>
+  <#local ret = {}>
+  <#local targetObjName = attr.getLabelledOption("conjunction", "target_object")>
+  <#local targetAttrName = attr.getLabelledOption("conjunction", "target_attribute")>
+  <#local sourceObjName = attr.getLabelledOption("conjunction", "source_object")>
+  <#local sourceAttrName = attr.getLabelledOption("conjunction", "source_attribute")>
+  <#local targetObj = model.findObjectByName(targetObjName)>
+  <#local targetObjAttr = targetObj.getAttribute(targetAttrName)>
+  <#local sourceObj = model.findObjectByName(sourceObjName)>
+  <#local sourceObjAttr = sourceObj.getAttribute(sourceAttrName)>
+  <#local ret += {
+    "targetObj": targetObj,
+    "targetAttr": targetObjAttr,
+    "sourceObj": sourceObj,
+    "sourceAttr": sourceObjAttr,
+    "targetObjName": targetObjName,
+    "targetAttrName": targetAttrName,
+    "sourceObjName": sourceObjName,
+    "sourceAttrName": sourceAttrName
+  }>
+  <#return ret>
+</#function>
