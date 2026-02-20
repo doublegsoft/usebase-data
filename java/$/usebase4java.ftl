@@ -469,10 +469,10 @@ ${""?left_pad(indent)}${java.nameVariable(objname)}Query = ${java.nameVariable(o
 ${""?left_pad(indent)}try {
 ${""?left_pad(indent)}  ValidationResult res = ${invoc.method}(<#list invoc.arguments as arg><#if arg?index != 0>, </#if>${java.nameVariable(arg)}</#list>);
 ${""?left_pad(indent)}  if (!res.isSuccessful()) {
-${""?left_pad(indent)}    throw new ServiceException("${invoc.error!"校验错误"}："<#list invoc.arguments as arg><#if arg?index != 0> + ", " </#if> + ${java.nameVariable(arg)}</#list>);
+${""?left_pad(indent)}    throw new ServiceException(403, "${invoc.error!"校验错误"}："<#list invoc.arguments as arg><#if arg?index != 0> + ", " </#if> + ${java.nameVariable(arg)}</#list>);
 ${""?left_pad(indent)}  }
 ${""?left_pad(indent)}} catch (RemoteException ex) {
-${""?left_pad(indent)}  throw new ServiceException("远程调用失败", ex);
+${""?left_pad(indent)}  throw new ServiceException(403, "远程调用失败", ex);
 ${""?left_pad(indent)}}
   </#if> 
 </#macro>
