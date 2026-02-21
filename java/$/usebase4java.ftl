@@ -469,7 +469,7 @@ ${""?left_pad(indent)}${java.nameVariable(objname)}Query = ${java.nameVariable(o
 ${""?left_pad(indent)}try {
 ${""?left_pad(indent)}  ValidationResult res = ${invoc.method}(<#list invoc.arguments as arg><#if arg?index != 0>, </#if>${java.nameVariable(arg)}</#list>);
 ${""?left_pad(indent)}  if (!res.isSuccessful()) {
-${""?left_pad(indent)}    throw new ServiceException(403, "${invoc.error!"校验错误"}："<#list invoc.arguments as arg><#if arg?index != 0> + ", " </#if> + ${java.nameVariable(arg)}</#list>);
+${""?left_pad(indent)}    throw new ServiceException(400, "${invoc.error!"校验错误"}："<#list invoc.arguments as arg><#if arg?index != 0> + ", " </#if> + ${java.nameVariable(arg)}</#list>);
 ${""?left_pad(indent)}  }
 ${""?left_pad(indent)}} catch (RemoteException ex) {
 ${""?left_pad(indent)}  throw new ServiceException(403, "远程调用失败", ex);
@@ -523,6 +523,8 @@ ${""?left_pad(indent)}${type_variable(usecase, assign.assignee)} ${java.nameVari
 <@print_assignment_simple_for_object usecase=usecase assign=assign indent=indent />
     <#elseif assign.value.arrayValue??>
 <@print_assignment_simple_for_array usecase=usecase assign=assign indent=indent />      
+    <#else>
+${""?left_pad(indent)}// ${assign.originalText}      
     </#if>
   <#else>
 ${""?left_pad(indent)}// 其他赋值操作暂不支持
@@ -537,7 +539,7 @@ ${""?left_pad(indent)}// 其他赋值操作暂不支持
       <#if cmp.comparator == '!='>
 ${""?left_pad(indent)}String ${usebase.name_method_return(invo.method)} = ${java.nameVariable(invo.method)}();      
 ${""?left_pad(indent)}if (!${cmp.comparand}.equals(${usebase.name_method_return(invo.method)})) {
-${""?left_pad(indent)}  throw new ServiceException("${invo.error}");
+${""?left_pad(indent)}  throw new ServiceException(400, "${invo.error}");
 ${""?left_pad(indent)}}      
       </#if>
     </#if>
@@ -654,8 +656,9 @@ ${""?left_pad(indent)}}
   <#local objVal = assign.value.objectValue>
   <#-- [Step 1] 获取唯一性约束配置 -->
   <#-- 尝试获取 "unique" 标签下的 "object" 选项，这代表要查找的领域对象名称 -->
-  <#local uniqueObjName = objVal.getLabelledOption("unique", "object")!"">
+  <#local uniqueObjName = usebase.get_object_unique_object(objVal)>
   <#if uniqueObjName == "">
+${""?left_pad(indent)}// 没有定义(unique/object) ${assign.originalText}  
     <#--
       ### 如果没有定义 "unique.object"，则无法确定如何查找对象。
       ### 这种情况通常意味着元数据配置不完整，或者这不是一个查找赋值操作。
@@ -663,6 +666,7 @@ ${""?left_pad(indent)}}
       -->
     <#return>
   </#if>
+${""?left_pad(indent)}// FIXME: 有错误
   <#-- [Step 2] 获取用于查找的属性列表 (例如: ["code", "type"]) -->
   <#local uniqueAttrNames = objVal.getLabelledOptionAsList("unique", "attribute")>
   <#-- [Step 3] 生成查询对象初始化代码 -->
@@ -670,8 +674,9 @@ ${""?left_pad(indent)}// [Generator] 准备查询条件: 根据唯一键查找 $
 ${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query unique${java.nameType(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
   <#-- [Step 4] 填充查询条件 -->
   <#list uniqueAttrNames as attrname>
+    <#if !model.findAttributeByNames(uniqueObjName, attrname)??><#continue></#if>
     <#-- 在 API 模型中查找属性定义，以便处理别名(Alias)情况 -->
-    <#local uniqueAttr = apiModel.findAttributeByNames(objVal.name, attrname)>
+    <#local uniqueAttr = model.findAttributeByNames(uniqueObjName, attrname)>
     <#if uniqueAttr.alias??>
       <#-- 如果属性有别名，使用别名生成 Setter (常见于表连接或视图字段) -->
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(uniqueAttr.alias)}(${java.nameVariable(attrname)});
@@ -681,12 +686,12 @@ ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameT
     </#if>
   </#list>
   <#-- [Step 5] 调用 Service 执行查找并赋值 -->
-${""?left_pad(indent)}${java.nameType(uniqueObjName)} ${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
+${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query ${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
   <#-- [Step 6] (可选) 生成非空校验逻辑 -->
   <#if objVal.isLabelled("required")>    
 ${""?left_pad(indent)}// [Validation] 校验对象是否存在
 ${""?left_pad(indent)}if (${java.nameVariable(assign.assignee)} == null) {
-${""?left_pad(indent)}  throw new ServiceException("${objVal.getLabelledOption("required", "message")}")
+${""?left_pad(indent)}  throw new ServiceException(400, "${objVal.getLabelledOption("required", "message")}");
 ${""?left_pad(indent)}}
   </#if>
 </#macro>
@@ -796,3 +801,4 @@ ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_n
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(null);
   </#if>
 </#macro>
+

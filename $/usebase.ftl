@@ -413,3 +413,15 @@
   }>
   <#return ret>
 </#function>
+
+<#function get_object_unique_object objVal>
+  <#local ret = "">
+  <#local ret = objVal.getLabelledOption("unique", "object")!"">
+  <#if ret == "">
+    <#local objNames = objVal.getLabelledOptionAsList("unique", "object")>
+    <#if (objNames?size > 0)>
+      <#local ret = objNames[0]>
+    </#if>  
+  </#if>
+  <#return ret>
+</#function>

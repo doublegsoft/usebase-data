@@ -148,9 +148,10 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     }
   </#if>
 </#list>
-<#------------------>
-<#-- 数据唯一性校验 -->
-<#------------------>
+<#---------------------------------------------------------->
+<#-- 在参数定义中，存在对象的唯一性校验表达式，需要进行唯一性校验。 -->
+<#-- 例如：TODO: 找到这个表达式的案例                         -->
+<#---------------------------------------------------------->
 <#if paramObj.getLabelledOption("unique", "object")??>
   <#assign uniqueObjName = paramObj.getLabelledOption("unique", "object")>
   <#assign uniqueObj = model.findObjectByName(uniqueObjName)>
