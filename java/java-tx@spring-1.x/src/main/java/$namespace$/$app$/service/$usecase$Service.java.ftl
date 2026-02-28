@@ -18,8 +18,10 @@ public interface ${java.nameType(usecase.name)}Service {
    */
 <#if isArray == "true">
   List<${java.nameType(usecase.name)}Result> ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException;
-<#else>
+<#elseif usecase.returnedObject??>
   ${java.nameType(usecase.name)}Result ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException;
+<#else>
+  void ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException;
 </#if>      
 
 }

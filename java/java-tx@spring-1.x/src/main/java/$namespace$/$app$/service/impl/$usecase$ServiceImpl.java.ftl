@@ -19,6 +19,8 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
+
+import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,10 +29,14 @@ import <#if namespace??>${namespace}.</#if>${app.name}.dto.info.*;
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.msg.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.service.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.util.*;
+import ${namespace}.${java.nameType(app.name)?lower_case}.service.helper.*;
 
 public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameType(usecase.name)}Service {
   
   private static final Logger TRACER = LoggerFactory.getLogger(${java.nameType(usecase.name)}ServiceImpl.class);
+
+  @Inject
+  private ${java.nameType(usecase.name)}Helper helper;
 <#----------------------->
 <#-- 返回值需要的服务对象 -->
 <#----------------------->
@@ -41,6 +47,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   <#if printedObjs[obj.name]??><#continue></#if>
   <#assign printedObjs += {obj.name:obj.name}>
 
+  @Inject
   private ${java.nameType(obj.name)}Service ${java.nameVariable(obj.name)}Service;
 </#list>
 <#---------------------------------->
@@ -54,6 +61,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   <#if printedObjs[obj.name]??><#continue></#if>
   <#assign printedObjs += {obj.name:obj.name}>
 
+  @Inject
   private ${java.nameType(obj.name)}Service ${java.nameVariable(obj.name)}Service;
 </#list>
 </#if>
@@ -81,13 +89,15 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 
 <#if isArray == "true">
   public List<${java.nameType(usecase.name)}Result> ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException {
-<#else>
+<#elseif usecase.returnedObject??>
   public ${java.nameType(usecase.name)}Result ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException {
+<#else>
+  public void ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException {    
 </#if>    
     TRACER.info("${java.nameVariable(usecase.name)} entered with {}.", params);
 <#if isArray == "true">
     List<${java.nameType(usecase.name)}Result> retVal = new ArrayList<>();
-<#else>
+<#elseif usecase.returnedObject??>
     ${java.nameType(usecase.name)}Result retVal = new ${java.nameType(usecase.name)}Result();
 </#if>    
 <#----------------------------------------------------------------------->    
@@ -296,13 +306,17 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     retVal.copyFrom${java.nameType(origobj)}(${java.nameVariable(origobj)});
         </#if>
       <#elseif origobj == "" || opname != "">
-    retVal.copyFrom${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
+    retVal.set${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
       </#if>
     </#list>
   </#if><#--if retObj.array-->  
 </#if>
+  <#if usecase.returnedObject??>  
     TRACER.info("${java.nameVariable(usecase.name)} exited with {}.", retVal);
     return retVal;
+  <#else>
+    TRACER.info("${java.nameVariable(usecase.name)} exited.");  
+  </#if>  
   }
   
 }

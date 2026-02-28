@@ -1,8 +1,28 @@
+<#--
+ ### 解析变量名对应的 Java 类型名称。
+ ### <p>
+ ### 该函数用于在代码生成过程中，推断一个 DSL 变量名（varname）在目标语言（Java）中的具体类型。
+ ### 它按照特定的优先级顺序在不同的作用域中查找变量定义。
+ ###
+ ### 查找优先级 (Resolution Order):
+ ### 1. 全局对象 (Global Object): 检查该变量名是否直接对应一个领域对象名 (如 "User")。
+ ### 2. 输入参数 (Input DTO): 检查该变量是否为 UseCase 输入对象的属性。
+ ### 3. 输出参数 (Output DTO): 检查该变量是否为 UseCase 返回对象的属性。
+ ### 4. 默认兜底 (Fallback): 如果都找不到，默认视为 "String" 类型。
+ ###
+ ### @param usecase
+ ###        当前的用例定义上下文
+ ### @param varname
+ ###        需要解析的变量名称字符串
+ ###
+ ### @return
+ ###        目标语言的类型名称字符串 (例如 "String", "Integer", "UserQuery")
+ -->
 <#function type_variable usecase varname>
   <#if model.findObjectByName(varname)??>
-    <#return java.nameType(varname)>
+    <#return java.nameType(varname) + "Query">
   </#if>
-  <#if usecase.paramemterizedObject??>
+  <#if usecase.parameterizedObject??>
     <#list usecase.parameterizedObject.attributes as attr>
       <#if attr.name == varname>
         <#local attrVar = attr>
@@ -446,9 +466,7 @@ ${""?left_pad(indent)}${java.nameVariable(objname)}Query = ${java.nameVariable(o
 </#macro>
 
 <#macro print_statement usecase stmt indent>
-  <#if stmt.operator?ends_with("?|")>
-<@print_statement_comparison usecase=usecase stmt=stmt indent=indent />  
-  <#elseif stmt.operator?ends_with("+|")>
+  <#if stmt.operator?ends_with("+|")>
 <@print_statement_save usecase=usecase stmt=stmt indent=indent />
   <#elseif stmt.operator?ends_with("=|")>
 <@print_statement_update usecase=usecase stmt=stmt indent=indent />
@@ -518,7 +536,7 @@ ${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.update${java.na
   <#if assign.assignOp == "=">
     <#if assign.value.invocation??>
       <#local invo = assign.value.invocation>
-${""?left_pad(indent)}${type_variable(usecase, assign.assignee)} ${java.nameVariable(assign.assignee)} = ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);
+${""?left_pad(indent)}${type_variable(usecase, assign.assignee)} ${java.nameVariable(assign.assignee)} = helper.${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);
     <#elseif assign.value.objectValue??>
 <@print_assignment_simple_for_object usecase=usecase assign=assign indent=indent />
     <#elseif assign.value.arrayValue??>
@@ -537,7 +555,7 @@ ${""?left_pad(indent)}// 其他赋值操作暂不支持
     <#local invo = cmp.value.invocation>
     <#if invo.error??>
       <#if cmp.comparator == '!='>
-${""?left_pad(indent)}String ${usebase.name_method_return(invo.method)} = ${java.nameVariable(invo.method)}();      
+${""?left_pad(indent)}String ${usebase.name_method_return(invo.method)} = helper.${java.nameVariable(invo.method)}();      
 ${""?left_pad(indent)}if (!${cmp.comparand}.equals(${usebase.name_method_return(invo.method)})) {
 ${""?left_pad(indent)}  throw new ServiceException(400, "${invo.error}");
 ${""?left_pad(indent)}}      
@@ -548,7 +566,7 @@ ${""?left_pad(indent)}}
 
 <#macro print_statement_invocation usecase stmt indent>
   <#local invo = stmt.invocation>
-${""?left_pad(indent)}${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);      
+${""?left_pad(indent)}helper.${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);      
 </#macro>
 
 <#macro print_statement_find usecase stmt indent>
@@ -660,10 +678,10 @@ ${""?left_pad(indent)}}
   <#if uniqueObjName == "">
 ${""?left_pad(indent)}// 没有定义(unique/object) ${assign.originalText}  
     <#--
-      ### 如果没有定义 "unique.object"，则无法确定如何查找对象。
-      ### 这种情况通常意味着元数据配置不完整，或者这不是一个查找赋值操作。
-      ### 直接返回，不生成任何代码。
-      -->
+     ### 如果没有定义 "unique.object"，则无法确定如何查找对象。
+     ### 这种情况通常意味着元数据配置不完整，或者这不是一个查找赋值操作。
+     ### 直接返回，不生成任何代码。
+     -->
     <#return>
   </#if>
 ${""?left_pad(indent)}// FIXME: 有错误
