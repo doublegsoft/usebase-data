@@ -20,6 +20,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
 
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Named;  
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +33,7 @@ import ${namespace}.${java.nameType(app.name)?lower_case}.service.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.util.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.service.helper.*;
 
+@ApplicationScoped
 public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameType(usecase.name)}Service {
   
   private static final Logger TRACER = LoggerFactory.getLogger(${java.nameType(usecase.name)}ServiceImpl.class);
@@ -73,7 +76,8 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   <#assign objname = attr.getLabelledOption("original", "object")!"">
   <#if objname == "" || printedObjs[objname]??><#continue></#if>
   <#assign printedObjs += {objname:objname}>
-
+  
+  @Inject
   private ${java.nameType(objname)}Service ${java.nameVariable(objname)}Service;
 </#list>
 <#------------------------------->
@@ -84,6 +88,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   <#if printedObjs[objInData.name]??><#continue></#if>
   <#assign printedObjs += {objInData.name:objInData}>
 
+  @Inject
   private ${java.nameType(objInData.name)}Service ${java.nameVariable(objInData.name)}Service;    
 </#list>
 
