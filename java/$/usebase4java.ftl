@@ -114,7 +114,10 @@
 </#function>
 
 <#function name_attribute attr>
-  <#assign origObjName = attr.getLabelledOption("original", "object")>
+  <#assign origObjName = attr.getLabelledOption("original", "object")!"">
+  <#if origObjName == "">
+    <#return attr.name>
+  </#if>
   <#assign origAttrName = attr.getLabelledOption("original", "attribute")>
   <#if origAttrName == "id" || origAttrName == "name" || origAttrName == "code" || origAttrName == "type">
     <#return origObjName + "_" + origAttrName>
