@@ -44,6 +44,84 @@
   <#return "String">
 </#function>
 
+<#--
+ ### 检查指定变量名是否为当前用例输入参数（Input DTO）的属性。
+ ### <p>
+ ### 该函数用于变量作用域解析。在生成代码时，我们需要知道一个变量名到底是指向
+ ### 输入参数中的字段（如 `request.getUsername()`），还是一个局部变量。
+ ###
+ ### 逻辑流程 (Logic Flow):
+ ### 1. 检查用例是否有定义输入对象 (parameterizedObject)。
+ ### 2. 遍历输入对象的所有属性。
+ ### 3. 比较属性名与传入的变量名。
+ ###
+ ### @param usecase
+ ###        当前用例定义上下文
+ ### @param varname
+ ###        待检查的变量名称 (String)
+ ###
+ ### @return
+ ###        true 表示该变量是输入参数的属性，false 表示不是
+ -->
+<#function is_paramobj_attribute usecase varname>
+  <#if usecase.parameterizedObject??>
+    <#list usecase.parameterizedObject.attributes as attr>
+      <#if attr.name == varname>
+        <#return true>
+      </#if>
+    </#list>
+  </#if>
+  <#return false>
+</#function>
+
+<#--
+ ### 从输入参数对象中查找对应于指定“关联对象/中间表”的属性定义。
+ ### <p>
+ ### 该函数用于在 UseCase 的输入 DTO (Parameterized Object) 中，寻找被标记为特定
+ ### "conjunction" (多对多关联) 的属性。
+ ###
+ ### 典型场景：
+ ### 假设输入 DTO 为 `UserUpdateDTO`，其中有一个属性 `roleList`。
+ ### `roleList` 上标记了 `@conjunction(object="UserRole")`。
+ ### 调用此函数传入 "UserRole"，将返回 `roleList` 这个属性定义对象。
+ ###
+ ### 逻辑流程 (Logic Flow):
+ ### 1. 检查是否存在输入参数对象。
+ ### 2. 遍历输入对象的所有属性。
+ ### 3. 提取属性上的 conjunction 配置名（优先取 "object"，不存在则取 "name"）。
+ ### 4. 比对名称，匹配成功则返回该属性定义。
+ ###
+ ### @param usecase
+ ###        当前用例定义上下文
+ ### @param conjObjName
+ ###        关联对象（中间表）的名称 (String)
+ ###
+ ### @return
+ ###        找到的属性定义对象 (AttributeDefinition)，未找到则无返回值(null)
+ -->
+<#function get_conjuncted_attribute_from_paramobj usecase conjObjName>
+  <#if usecase.parameterizedObject??>
+    <#list usecase.parameterizedObject.attributes as attr>
+      <#local conjObjNameForAttr = attr.getLabelledOption("conjunction", "object")!"">
+      <#if conjObjNameForAttr == "">
+        <#local conjObjNameForAttr = attr.getLabelledOption("conjunction", "name")!"">
+      </#if>
+      <#if conjObjNameForAttr == conjObjName>
+        <#return attr>
+      </#if>  
+    </#list>  
+  </#if>
+</#function>
+
+<#function name_attribute attr>
+  <#assign origObjName = attr.getLabelledOption("original", "object")>
+  <#assign origAttrName = attr.getLabelledOption("original", "attribute")>
+  <#if origAttrName == "id" || origAttrName == "name" || origAttrName == "code" || origAttrName == "type">
+    <#return origObjName + "_" + origAttrName>
+  </#if>  
+  <#return origAttrName>
+</#function>  
+
 <#macro print_body usecase indent>
   <#if usecase.name?starts_with("find")>
 <@print_body_find usecase=usecase indent=indent />
@@ -101,9 +179,18 @@
   <#local prevObjInChain = firstObjInChain>
   <#list 1..(objSize-1) as index>
     <#local obj = associationChain.getAssociatingObjects()[index]>
+    <#if masterObjs[obj.name]??><#continue></#if>
+${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)}Query = null;
+${""?left_pad(indent)}Integer ${java.nameVariable(obj.name)}RowIndex = 0;
+${""?left_pad(indent)}Map<Object,Integer> ${java.nameVariable(obj.name)}IdIndexes = new HashMap<>();
+    <#local masterObjs += {obj.name:obj.name}>
+  </#list>
+  <#local masterObjs = {}> 
+  <#list 1..(objSize-1) as index>
+    <#local obj = associationChain.getAssociatingObjects()[index]>
     <#local masterObjs += {obj.name:obj.name}>
 ${""?left_pad(indent)}// 查询【${modelbase.get_object_label(obj)}】集合对象       
-${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)}Query = new ${java.nameType(obj.name)}Query();
+${""?left_pad(indent)}${java.nameVariable(obj.name)}Query = new ${java.nameType(obj.name)}Query();
 ${""?left_pad(indent)}${java.nameVariable(obj.name)}Query.setLimit(-1);
     <#if index == 1>
       <#local idAttrFirstObjInChain = modelbase.get_id_attributes(firstObjInChain)?first>
@@ -131,7 +218,7 @@ ${""?left_pad(indent)}List<${java.nameType(obj.name)}Query> ${java.nameVariable(
       <#-- 当没有运算符的定义时，主要对象的查询参数赋值 -->
       <#local masterObjs += {objname: objname}>
 ${""?left_pad(indent)}// 查询【${modelbase.get_object_label(model.findObjectByName(objname))}】集合对象       
-${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
+${""?left_pad(indent)}${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
 ${""?left_pad(indent)}${java.nameVariable(objname)}Query.setLimit(-1);
       <#list paramObj.attributes as paramAttr>
         <#local originalObjName = paramAttr.getLabelledOption("original", "object")!"">
@@ -149,7 +236,7 @@ ${""?left_pad(indent)}${java.nameVariable(objname)}Query.set${java.nameType(mode
       <#local targetObj = model.findObjectByName(targetObjName)>
       <#local targetObjAttr = targetObj.getAttribute(targetAttrName)>
       <#local sourceObj = model.findObjectByName(sourceObjName)>
-      <#local sourceObjAttr = sourceObj.getAttribute(sourceAttrName)>
+      <#local sourceObjAttr = sourceObj.getAttribute(sourceAttrName)> 
 ${""?left_pad(indent)}for (${java.nameType(targetObj.name)}Query row : ${java.nameVariable(inflector.pluralize(targetObj.name))}) {
 ${""?left_pad(indent)}  ${java.nameVariable(sourceObj.name)}Query.add${java.nameType(modelbase.get_attribute_sql_name(sourceObjAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(targetObjAttr))}());
 ${""?left_pad(indent)}}
@@ -166,19 +253,21 @@ ${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(i
       <#local slaveObjs += {objname: objname}>
       <#local slaveObj = model.findObjectByName(objname)>
       <#if opname == "count">
-${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();    
+${""?left_pad(indent)}${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();    
         <#list masterObjs?values as masterObjName>
           <#local masterObj = model.findObjectByName(masterObjName)>
           <#local masterObjIdAttr = modelbase.get_id_attributes(masterObj)?first>
           <#list slaveObj.attributes as attr>
             <#if attr.type.name == masterObjName>
+${""?left_pad(indent)}${java.nameVariable(masterObjName)}RowIndex = 0;              
 ${""?left_pad(indent)}for (${java.nameType(masterObjName)}Query row : ${java.nameVariable(inflector.pluralize(masterObjName))}) {
 ${""?left_pad(indent)}  ${java.nameVariable(objname)}Query.add${java.nameType(modelbase.get_attribute_sql_name(masterObjIdAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(masterObjIdAttr))}());
+${""?left_pad(indent)}  ${java.nameVariable(masterObjName)}IdIndexes.put(row.get${java.nameType(modelbase.get_attribute_sql_name(masterObjIdAttr))}(), ${java.nameVariable(masterObjName)}RowIndex++);     
 ${""?left_pad(indent)}}
             </#if>
           </#list>
         </#list>
-${""?left_pad(indent)}List<Map<String,Object>> ${java.nameVariable(inflector.pluralize(attr.name))} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);     
+${""?left_pad(indent)}List<Map<String,Object>> ${java.nameVariable(inflector.pluralize(attr.name))} = ${java.nameVariable(objname)}Service.aggregate${java.nameType(objname)}(${java.nameVariable(objname)}Query);     
       </#if> 
     </#if>
   </#list>
@@ -501,17 +590,36 @@ ${""?left_pad(indent)}}
     <#local saveObjName = save.saveObject.name?replace("#", "")>
     <#if save.array == true>
       <#local saveObjName = saveObjName?replace("[]", "")>
-<#--  ${""?left_pad(indent)}List<${java.nameType(saveObjName)}Query> ${java.nameVariable(save.variable)} = new ArrayList<>();  -->
+      <#---------------------------------------------------->
+      <#-- 判断段这个集合对象是参数对象中的连接条件还是连接对象    -->
+      <#-- 如果是连接条件对象，从连接对象中封装为连接条件对象在保存 -->
+      <#---------------------------------------------------->
+      <#if is_paramobj_attribute(usecase, save.variable)>
 ${""?left_pad(indent)}for (${java.nameType(saveObjName)}Query row : ${java.nameVariable(save.variable)}) {
 ${""?left_pad(indent)}
 ${""?left_pad(indent)}}
-${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(inflector.pluralize(saveObjName))}(${java.nameVariable(save.variable)});    
+      <#else>
+        <#local conjedAttr = get_conjuncted_attribute_from_paramobj(usecase, saveObjName)>
+        <#local targetObjName = conjedAttr.getLabelledOption("conjunction", "target_object")>
+        <#local origObjName = conjedAttr.getLabelledOption("original", "object")>
+        <#local origObjIdAttr = modelbase.get_id_attributes(model.findObjectByName(origObjName))?first>
+        <#local targetObjIdAttr = modelbase.get_id_attributes(model.findObjectByName(targetObjName))?first>
+${""?left_pad(indent)}List<${java.nameType(saveObjName)}Query> ${java.nameVariable(save.variable)} = new ArrayList<>();
+${""?left_pad(indent)}for (${java.nameType(origObjName)}Info row : ${java.nameVariable(conjedAttr.name)}) {
+${""?left_pad(indent)}  ${java.nameType(saveObjName)}Query ${java.nameVariable(saveObjName)} = new ${java.nameType(saveObjName)}Query();
+${""?left_pad(indent)}  ${java.nameType(saveObjName)}Query.setDefaultValues(${java.nameVariable(saveObjName)}, true);
+${""?left_pad(indent)}  ${java.nameVariable(saveObjName)}.set${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}());
+${""?left_pad(indent)}  ${java.nameVariable(saveObjName)}.set${java.nameType(modelbase.get_attribute_sql_name(targetObjIdAttr))}(${java.nameVariable(targetObjName)}.get${java.nameType(modelbase.get_attribute_sql_name(targetObjIdAttr))}());
+${""?left_pad(indent)}  ${java.nameVariable(save.variable)}.add(${java.nameVariable(saveObjName)});
+${""?left_pad(indent)}}
+${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(inflector.pluralize(saveObjName))}(${java.nameVariable(save.variable)});  
+      </#if>  
     <#else>
 ${""?left_pad(indent)}${java.nameType(saveObjName)}Query ${java.nameVariable(save.variable)} = new ${java.nameType(saveObjName)}Query();
   <#list save.saveObject.attributes as attr>
     <#if attr.value??>
 ${""?left_pad(indent)}${java.nameVariable(save.variable)}.set${java.nameType(attr.name)}(${usebase4java.get_attribute_default_value(attr)});    
-    <#else>
+    <#elseif !attr.type.collection>
 ${""?left_pad(indent)}${java.nameVariable(save.variable)}.set${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
     </#if>
   </#list>
@@ -527,10 +635,45 @@ ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameTy
   <#local update = stmt>
   <#if update.saveObject??>
     <#local updateObjName = update.saveObject.name?replace("#", "")>
+    <#local uniqueLabels = usebase.get_object_unique_labels(update.saveObject)>
+${""?left_pad(indent)}${java.nameType(updateObjName)}Query ${java.nameVariable(updateObjName)}Query = new ${java.nameType(updateObjName)}Query();
+    <#list uniqueLabels as label>
+${""?left_pad(indent)}${java.nameVariable(updateObjName)}Query.set${java.nameType(label.attrname)}(${java.nameVariable(label.attrname)});    
+    </#list>
+${""?left_pad(indent)}${java.nameType(updateObjName)}Query ${java.nameVariable(updateObjName)} = ${java.nameVariable(updateObjName)}Service.get${java.nameType(updateObjName)}(${java.nameVariable(updateObjName)}Query);
+${""?left_pad(indent)}if (${java.nameVariable(updateObjName)} == null) {
+${""?left_pad(indent)}  throw new ServiceException(404, "${modelbase.get_object_label(model.findObjectByName(updateObjName))}不存在");
+${""?left_pad(indent)}}
+    <#list update.saveObject.attributes as attr>
+      <#if attr.value??>
+${""?left_pad(indent)}${java.nameVariable(updateObjName)}.set${java.nameType(attr.name)}(${usebase4java.get_attribute_default_value(attr)});
+      </#if>
+    </#list>
 ${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.update${java.nameType(updateObjName)}(${java.nameVariable(updateObjName)});
   </#if>  
 </#macro>
 
+<#--
+ ### 生成赋值语句的 Java 代码。
+ ### <p>
+ ### 该宏作为赋值操作的“主路由”，根据赋值符号右侧（RHS）的值类型，
+ ### 决定生成哪种类型的赋值代码。
+ ###
+ ### 支持的赋值场景 (Logic Dispatch):
+ ### 1. 方法调用 (Invocation): 调用 Helper 方法并将结果赋值给变量。
+ ###    例如: `String hash = helper.encrypt(password);`
+ ### 2. 对象赋值 (Object Value): 委托给 `print_assignment_simple_for_object` 宏处理。
+ ###    通常用于根据唯一键查找单个对象。
+ ### 3. 数组赋值 (Array Value): 委托给 `print_assignment_simple_for_array` 宏处理。
+ ###    通常用于列表数据的转换或查找。
+ ###
+ ### @param usecase
+ ###        当前用例定义上下文
+ ### @param stmt
+ ###        赋值语句对象 (Assignment Statement)
+ ### @param indent
+ ###        代码缩进级别
+ -->
 <#macro print_statement_assignment usecase stmt indent>
   <#local assign = stmt>
   <#if assign.assignOp == "=">
@@ -549,6 +692,30 @@ ${""?left_pad(indent)}// 其他赋值操作暂不支持
   </#if>
 </#macro>
 
+<#--
+ ### 生成基于方法调用结果的比较/校验代码。
+ ### <p>
+ ### 该宏处理 DSL 中的比较语句（Comparison Statement），特别是当比较的一方是一个函数调用（Invocation），
+ ### 且定义了错误消息时。这通常用于业务规则校验。
+ ###
+ ### 典型场景:
+ ### 验证码校验。DSL: `inputCaptcha != helper.generateCaptcha()` error "验证码错误"。
+ ### 生成代码: 先调用 helper 获取真值，然后对比，如果不一致则抛出 ServiceException。
+ ###
+ ### 逻辑流程 (Logic Flow):
+ ### 1. 检查语句是否包含方法调用且配置了错误消息 (error message)。
+ ### 2. 检查比较符是否为 '!=' (不等于)。
+ ### 3. 生成代码调用 Helper 方法获取预期值。
+ ### 4. 生成 if (!equals) 代码块进行校验。
+ ### 5. 如果校验失败，生成抛出异常的代码。
+ ###
+ ### @param usecase
+ ###        当前用例定义上下文
+ ### @param stmt
+ ###        比较语句对象 (Statement definition)
+ ### @param indent
+ ###        代码缩进级别
+ -->
 <#macro print_statement_comparison usecase stmt indent>
   <#local cmp = stmt>
   <#if cmp.value?? && cmp.value.invocation??>

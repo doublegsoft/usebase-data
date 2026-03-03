@@ -139,20 +139,14 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     <#if attr.constraint.defaultValue??>
     ${modelbase4java.type_attribute(attr)} ${java.nameVariable(attr.name)} = "${attr.constraint.defaultValue}";
     <#else>
-    ${modelbase4java.type_attribute(attr)} ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
+      <#if attr.type.collection>
+    List<${java.nameType(attr.type.componentType.name)}Info> ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
+      <#else>
+    ${modelbase4java.type_attribute(attr)} ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
+      </#if>
     </#if>
   </#if>  
 </#list>
-<#-------------------------->
-<#-- 对象标识字段（潜在）赋值 -->
-<#-------------------------->
-<#if assignedIdAttr??>
-  <#list explicitIdAttrs?values as idAttr>
-    <#if modelbase.get_attribute_sql_name(idAttr) != modelbase.get_attribute_sql_name(assignedIdAttr)>
-    ${modelbase.get_attribute_sql_name(idAttr)} = ${modelbase.get_attribute_sql_name(assignedIdAttr)};
-    </#if> 
-  </#list>
-</#if>   
 <#---------------->
 <#-- 必要字段校验 -->
 <#---------------->
@@ -163,6 +157,19 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     }
   </#if>
 </#list>
+<#-------------------------->
+<#-- 对象标识字段（潜在）赋值 -->
+<#-------------------------->
+<#if assignedIdAttr??>
+    if (Strings.isBlank(${java.nameVariable(assignedIdAttr.name)})) {
+      ${java.nameVariable(assignedIdAttr.name)} = IdGenerator.id();
+    }
+  <#list explicitIdAttrs?values as idAttr>
+    <#if modelbase.get_attribute_sql_name(idAttr) != modelbase.get_attribute_sql_name(assignedIdAttr)>
+    ${modelbase.get_attribute_sql_name(idAttr)} = ${modelbase.get_attribute_sql_name(assignedIdAttr)};
+    </#if> 
+  </#list>
+</#if>
 <#---------------------------------------------------------->
 <#-- 在参数定义中，存在对象的唯一性校验表达式，需要进行唯一性校验。 -->
 <#-- 例如：TODO: 找到这个表达式的案例                         -->
@@ -252,7 +259,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
          -->
     // 拼接计算字段 ${attr.name} 到结果集
     for (Map<String,Object> row : ${java.nameVariable(inflector.pluralize(attr.name))}) {
-      Integer idx = idIndexes.get(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}());
+      Integer idx = ${java.nameVariable(origObjIdAttr.parent.name)}IdIndexes.get(row.get("${modelbase.get_attribute_sql_name(origObjIdAttr)}"));
       if (idx == null) {
         continue;
       }
@@ -280,7 +287,8 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     <#list retObj.attributes as attr>
       <#if !attr.isLabelled("original")><#continue></#if>
       <#assign origObjName = attr.getLabelledOption("original", "object")>
-      <#assign origAttrName = attr.getLabelledOption("original", "attribute")>
+      <#assign origAttrName = attr.getLabelledOption("original", "attribute")!"">
+      <#if origAttrName == ""><#continue><#-- 如果是衍生属性，original attribute是未定义的 --></#if>
       <#-- 首要对象需要忽略掉，应为链接其他对象的算法就在首要对象的循环体中 -->
       <#if origObjName == masterObjName><#continue></#if>
       <#if joinedObjAttrs[(origObjName + "#" + origAttrName)]??><#continue></#if>

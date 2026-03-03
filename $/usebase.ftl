@@ -363,6 +363,23 @@
   <#return ret>
 </#function>
 
+<#function get_object_unique_labels obj>
+  <#local ret = []>
+  <#local uniqueObjNames = obj.getLabelledOptionAsList("unique", "object")>
+  <#local uniqueAttrNames = obj.getLabelledOptionAsList("unique", "attribute")>
+  <#local uniqueAttrTypes = obj.getLabelledOptionAsList("unique", "type")>
+  <#local uniqueAttrVals = obj.getLabelledOptionAsList("unique", "value")>
+  <#list 0..(uniqueObjNames?size - 1) as idx>
+    <#local ret += [{
+      "objname": uniqueObjNames[idx],
+      "attrname": uniqueAttrNames[idx],
+      "attrtype": uniqueAttrTypes[idx],
+      "value": uniqueAttrVals[idx]
+    }]>
+  </#list>
+  <#return ret>
+</#function>
+
 <#--
  ### Resolves the metadata for a Many-to-Many "Conjunction" relationship.
  ### <p>
