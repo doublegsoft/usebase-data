@@ -406,7 +406,7 @@ ${""?left_pad(indent)}// 查询【${modelbase.get_object_label(obj)}】集合对
       <#if strongObjRels.array == true>
 ${""?left_pad(indent)}if (!${java.nameVariable(inflector.pluralize(strongObjRels.object.name))}.isEmpty()) {      
       <#else>
-${""?left_pad(indent)}if (${java.nameVariable(strongObjRels.object.name)} != null) {
+${""?left_pad(indent)}if (true) {
       </#if>
 ${""?left_pad(indent)}  List<${java.nameType(obj.name)}Query> data = ${java.nameVariable(obj.name)}Service.find${java.nameType(inflector.pluralize(obj.name))}(${java.nameVariable(obj.name)}Query).getData();
 ${""?left_pad(indent)}  ${java.nameVariable(inflector.pluralize(obj.name))}.addAll(data);
@@ -476,6 +476,9 @@ ${""?left_pad(indent)}}
     <#if attr.isLabelled("original")>
       <#local objname = attr.getLabelledOption("original", "object")!"">
       <#local isArray = attr.getLabelledOption("original", "array")!"false">
+      <#if attr.type.collection>
+        <#local isArray = "true">
+      </#if>
       <#if masterObjName == "">
         <#local masterObjName = objname>
       <#elseif masterObjName != objname && !slaveObjNames[objname]??>
@@ -492,11 +495,12 @@ ${""?left_pad(indent)}}
 ${""?left_pad(indent)}${typeName}Query ${varName}Query = new ${typeName}Query();
     <#list paramObj.attributes as attr>
       <#if attr.isLabelled("original") && (attr.getLabelledOption("original", "object")!"") == masterObjName>
-        <#local targetAttr = attr.getLabelledOption("original", "attribute")>
-${""?left_pad(indent)}${varName}Query.set${java.nameType(targetAttr)}(params.get${java.nameType(attr.name)}());
+        <#local targetAttrName = attr.getLabelledOption("original", "attribute")>
+        <#local targetAttr = model.findAttributeByNames(masterObjName, targetAttrName)>
+${""?left_pad(indent)}${varName}Query.${modelbase4java.name_setter(targetAttr)}(params.get${java.nameType(attr.name)}());
       </#if>
     </#list>
-${""?left_pad(indent)}${varName}Query = ${varName}Service.save${typeName}(${varName}Query);
+${""?left_pad(indent)}${typeName}Query ${varName} = ${varName}Service.save${typeName}(${varName}Query);
   </#if>
   <#list slaveObjNames?keys as objname>
     <#local slaveObj = model.findObjectByName(objname)>
@@ -505,8 +509,20 @@ ${""?left_pad(indent)}${varName}Query = ${varName}Service.save${typeName}(${varN
       <#list paramObj.attributes as attr>
         <#if attr.type.collection && attr.type.componentType.name == objname>
           <#local conjObjName = attr.getLabelledOption("conjunction", "name")!"">
-${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
-${""?left_pad(indent)}${java.nameVariable(attr.name)} = ${java.nameVariable(objname)}Service.save${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(attr.name)});    
+${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(objname)}Queries = new ArrayList<>();
+${""?left_pad(indent)}for (${java.nameType(objname)}Info item : ${java.nameVariable(attr.name)}) {
+${""?left_pad(indent)}  ${java.nameType(objname)}Query itemQuery = new ${java.nameType(objname)}Query();
+${""?left_pad(indent)}  ${java.nameType(objname)}Query.setDefaultValues(itemQuery);
+          <#list slaveObj.attributes as slaveObjAttr>
+            <#if slaveObjAttr.type.custom && slaveObjAttr.type.name != masterObjName>
+${""?left_pad(indent)}  itemQuery.set${java.nameType(modelbase.get_attribute_sql_name(slaveObjAttr))}(item.get${java.nameType(modelbase.get_attribute_sql_name(slaveObjAttr))}());
+              <#break>
+            </#if>
+          </#list>
+${""?left_pad(indent)}  itemQuery.set${java.nameType(modelbase.get_attribute_sql_name(slaveObjIdAttr))}(${java.nameVariable(masterObjName)}.get${java.nameType(modelbase.get_attribute_sql_name(masterObjIdAttr))}());
+${""?left_pad(indent)}  ${java.nameVariable(objname)}Queries.add(itemQuery);
+${""?left_pad(indent)}}
+${""?left_pad(indent)}${java.nameVariable(objname)}Service.save${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Queries);    
           <#if conjObjName != "">
             <#local conjObj = model.findObjectByName(conjObjName)>
             <#-- ----------------------------- -->
@@ -549,7 +565,7 @@ ${""?left_pad(indent)}${java.nameVariable(attr.name)}For${java.nameType(conjObjN
       </#list>
     <#else>
 ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
-${""?left_pad(indent)}${java.nameVariable(objname)}Query = ${java.nameVariable(objname)}Service.save${java.nameType(objname)}(${java.nameVariable(objname)}Query);
+${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)} = ${java.nameVariable(objname)}Service.save${java.nameType(objname)}(${java.nameVariable(objname)}Query);
     </#if>
   </#list>
 </#macro>

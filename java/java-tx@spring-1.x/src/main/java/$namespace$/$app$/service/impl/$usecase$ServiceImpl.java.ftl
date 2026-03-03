@@ -53,6 +53,19 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   @Inject
   private ${java.nameType(obj.name)}Service ${java.nameVariable(obj.name)}Service;
 </#list>
+<#if usecase.returnedObject??>
+  <#list usecase.returnedObject.attributes as attr>
+  <#assign conjObjName = attr.getLabelledOption("conjunction", "object")!"">
+  <#if conjObjName == "">
+    <#assign conjObjName = attr.getLabelledOption("conjunction", "name")!"">
+  </#if>
+  <#if conjObjName == "" || printedObjs[conjObjName]??><#continue></#if>
+  <#assign printedObjs += {conjObjName:conjObjName}>
+  
+  @Inject
+  private ${java.nameType(conjObjName)}Service ${java.nameVariable(conjObjName)}Service;
+</#list>
+</#if>
 <#---------------------------------->
 <#-- 参数和返回值关联对象需要的服务对象 -->
 <#---------------------------------->
