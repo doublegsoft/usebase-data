@@ -772,7 +772,7 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.${modelbase4java.na
 ${""?left_pad(indent)}List<${java.nameType(origObjName)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();
 ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(assign.assignee)} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);    
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee)}.addAll(page${java.nameType(assign.assignee)}.getData());
-${""?left_pad(indent)}if (page${java.nameType(inflector.pluralize(origObjName))}.getData().isEmpty()) {
+${""?left_pad(indent)}if (page${java.nameType(assign.assignee)}.getData().isEmpty()) {
 ${""?left_pad(indent)}  throw new ServiceException(404, "${message}");
 ${""?left_pad(indent)}}
   <#elseif value.objectValue??>
@@ -861,42 +861,43 @@ ${""?left_pad(indent)}}
   <#-- [Step 1] 获取唯一性约束配置 -->
   <#-- 尝试获取 "unique" 标签下的 "object" 选项，这代表要查找的领域对象名称 -->
   <#local uniqueObjName = usebase.get_object_unique_object(objVal)>
-  <#if uniqueObjName == "">
-${""?left_pad(indent)}// 没有定义(unique/object) ${assign.originalText}  
+  <#local sourceVarName = objVal.getLabelledOption("original", "source")>
+  <#if uniqueObjName != "">
     <#--
      ### 如果没有定义 "unique.object"，则无法确定如何查找对象。
      ### 这种情况通常意味着元数据配置不完整，或者这不是一个查找赋值操作。
      ### 直接返回，不生成任何代码。
      -->
-    <#return>
-  </#if>
 ${""?left_pad(indent)}// FIXME: 有错误
-  <#-- [Step 2] 获取用于查找的属性列表 (例如: ["code", "type"]) -->
-  <#local uniqueAttrNames = objVal.getLabelledOptionAsList("unique", "attribute")>
-  <#-- [Step 3] 生成查询对象初始化代码 -->
-${""?left_pad(indent)}// [Generator] 准备查询条件: 根据唯一键查找 ${uniqueObjName}
+    <#local uniqueAttrNames = objVal.getLabelledOptionAsList("unique", "attribute")>
+${""?left_pad(indent)}// 准备查询条件: 根据唯一键查找 ${uniqueObjName}
 ${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query unique${java.nameType(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
-  <#-- [Step 4] 填充查询条件 -->
-  <#list uniqueAttrNames as attrname>
-    <#if !model.findAttributeByNames(uniqueObjName, attrname)??><#continue></#if>
-    <#-- 在 API 模型中查找属性定义，以便处理别名(Alias)情况 -->
-    <#local uniqueAttr = model.findAttributeByNames(uniqueObjName, attrname)>
-    <#if uniqueAttr.alias??>
-      <#-- 如果属性有别名，使用别名生成 Setter (常见于表连接或视图字段) -->
+    <#list uniqueAttrNames as attrname>
+      <#if !model.findAttributeByNames(uniqueObjName, attrname)??><#continue></#if>
+      <#local uniqueAttr = model.findAttributeByNames(uniqueObjName, attrname)>
+      <#if uniqueAttr.alias??>
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(uniqueAttr.alias)}(${java.nameVariable(attrname)});
-    <#else>
-      <#-- 使用标准属性名生成 Setter -->
+      <#else>
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});        
-    </#if>
-  </#list>
-  <#-- [Step 5] 调用 Service 执行查找并赋值 -->
+      </#if>
+    </#list>
 ${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query ${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
-  <#-- [Step 6] (可选) 生成非空校验逻辑 -->
-  <#if objVal.isLabelled("required")>    
-${""?left_pad(indent)}// [Validation] 校验对象是否存在
+    <#if objVal.isLabelled("required")>    
+${""?left_pad(indent)}// 校验对象是否存在
 ${""?left_pad(indent)}if (${java.nameVariable(assign.assignee)} == null) {
 ${""?left_pad(indent)}  throw new ServiceException(400, "${objVal.getLabelledOption("required", "message")}");
 ${""?left_pad(indent)}}
+    </#if>   
+  <#elseif sourceVarName != "">
+    <#local sourceVar = usecase.getVariable(sourceVarName)>
+    <#local sourceObj = sourceVar.type>
+    <#local origObjName = objVal.getLabelledOption("original", "object")>
+    <#--
+     ### 直接从其他的变量作为数据源头，产生新的对象实例，
+     ### 赋值给新实例。
+     -->  
+${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(assign.assignee)} = new ${java.nameType(origObjName)}Query();  
+<@print_two_objects_copy sourceObj=sourceObj sourceVarName=sourceVarName targetObj=model.findObjectByName(origObjName) targetVarName=java.nameVariable(assign.assignee) indent=indent />
   </#if>
 </#macro>
 
@@ -925,21 +926,17 @@ ${""?left_pad(indent)}}
  -->
 <#macro print_assignment_simple_for_array usecase assign indent>
   <#local arrayValObj = assign.value.arrayValue>
-  <#-- [Step 1] 获取源数据配置 -->
   <#-- 获取源变量名 (例如: "&orders") -->
-  <#local arrayValSrc = arrayValObj.getLabelledOption("original","source")>
-  <#-- 获取在数据模型中的目标对象类型 (例如: "Order") -->
+  <#local sourceVarName = arrayValObj.getLabelledOption("original","source")>
   <#local arrayValDataObj = model.findObjectByName(arrayValObj.getLabelledOption("original","object"))>
-  <#-- [Step 2] 解析源变量类型信息 -->
-  <#local varDef = usecase.getVariable(arrayValSrc)>
-  <#local varComponentType = varDef.type.componentType.name>
+  <#local sourceVar = usecase.getVariable(sourceVarName)>
+  <#local varComponentType = sourceVar.type.componentType.name>
   <#-- TODO: 是否需要从可计算的属性中，衍生出其他集合属性 (保留原有的 TODO) -->
-${""?left_pad(indent)}// [Generator] 处理数组对象赋值: 从 ${arrayValSrc} 转换列表
+${""?left_pad(indent)}// 处理数组对象赋值: 从 ${sourceVarName} 转换列表
 ${""?left_pad(indent)}List<${java.nameType(arrayValDataObj.name)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();
-${""?left_pad(indent)}// 遍历源集合
-${""?left_pad(indent)}for (${java.nameType(varComponentType)}Query row : ${java.nameVariable(arrayValSrc)}) {
+${""?left_pad(indent)}for (${java.nameType(varComponentType)}Query row : ${java.nameVariable(sourceVarName)}) {
 ${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query item = new ${java.nameType(arrayValDataObj.name)}Query();
-  <#-- [Step 3] 属性初始化/映射 -->
+<@print_two_objects_copy sourceObj=model.findObjectByName(varComponentType) sourceVarName="row" targetObj=arrayValDataObj targetVarName="item" indent=indent+2 />
   <#list arrayValObj.attributes as attr>
     <#local attrInDataObj = arrayValDataObj.getAttribute(attr.name)>
     <#-- 
@@ -1006,3 +1003,23 @@ ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_n
   </#if>
 </#macro>
 
+<#macro print_two_objects_copy sourceObj sourceVarName targetObj targetVarName indent>
+  <#list sourceObj.attributes as sourceAttr>
+    <#if modelbase.is_attribute_system(sourceAttr)><#continue></#if>
+    <#local sourceAttrSqlName = modelbase.get_attribute_sql_name(sourceAttr)>
+    <#list targetObj.attributes as targetAttr>
+      <#local targetAttrSqlName = modelbase.get_attribute_sql_name(targetAttr)>
+      <#if targetAttr.type.primitive>
+        <#if sourceAttrSqlName == targetAttrSqlName && sourceAttr.type.name == targetAttr.type.name>
+${""?left_pad(indent)}${java.nameVariable(targetVarName)}.set${java.nameType(modelbase.get_attribute_sql_name(targetAttr))}(${java.nameVariable(sourceVarName)}.get${java.nameType(modelbase.get_attribute_sql_name(sourceAttr))}());      
+          <#break>  
+        </#if>
+      <#elseif targetAttr.type.custom>
+        <#if sourceAttrSqlName == targetAttrSqlName>
+${""?left_pad(indent)}${java.nameVariable(targetVarName)}.set${java.nameType(modelbase.get_attribute_sql_name(targetAttr))}(${java.nameVariable(sourceVarName)}.get${java.nameType(modelbase.get_attribute_sql_name(sourceAttr))}());      
+          <#break>  
+        </#if>
+      </#if>
+    </#list>
+  </#list>
+</#macro>
