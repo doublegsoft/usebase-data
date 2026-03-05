@@ -586,6 +586,8 @@ ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname
 <@print_statement_invocation usecase=usecase stmt=stmt indent=indent />
   <#elseif stmt.operator?ends_with("&|")>
 <@print_statement_find usecase=usecase stmt=stmt indent=indent />    
+  <#elseif stmt.operator?ends_with(".|")>
+<@print_statement_return usecase=usecase stmt=stmt indent=indent />   
   </#if>
 </#macro>
 
@@ -654,11 +656,9 @@ ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameTy
   <#local update = stmt>
   <#if update.saveObject??>
     <#local updateObjName = update.saveObject.name?replace("#", "")>
-    <#local uniqueLabels = usebase.get_object_unique_labels(update.saveObject)>
 ${""?left_pad(indent)}${java.nameType(updateObjName)}Query ${java.nameVariable(updateObjName)}Query = new ${java.nameType(updateObjName)}Query();
-    <#list uniqueLabels as label>
-${""?left_pad(indent)}${java.nameVariable(updateObjName)}Query.set${java.nameType(label.attrname)}(${java.nameVariable(label.attrname)});    
-    </#list>
+<#-- 设置更新条件 -->    
+<@print_unique_labels_setter varname=(updateObjName + "Query") objval=update.saveObject indent=indent />     
 ${""?left_pad(indent)}${java.nameType(updateObjName)}Query ${java.nameVariable(updateObjName)} = ${java.nameVariable(updateObjName)}Service.get${java.nameType(updateObjName)}(${java.nameVariable(updateObjName)}Query);
 ${""?left_pad(indent)}if (${java.nameVariable(updateObjName)} == null) {
 ${""?left_pad(indent)}  throw new ServiceException(404, "${modelbase.get_object_label(model.findObjectByName(updateObjName))}不存在");
@@ -750,11 +750,92 @@ ${""?left_pad(indent)}}
   </#if>
 </#macro>
 
+<#--
+ ### 生成 Helper 方法调用语句。
+ ### <p>
+ ### 该宏用于生成对辅助类（Helper）方法的调用代码。通常用于处理不涉及赋值的独立操作。
+ ### 
+ ### 生成代码示例:
+ ### `helper.sendEmail(userId, subject);`
+ ###
+ ### 逻辑流程:
+ ### 1. 获取调用定义 (Invocation)。
+ ### 2. 生成 `helper.` 前缀。
+ ### 3. 格式化方法名。
+ ### 4. 遍历并生成参数列表，自动处理逗号分隔。
+ ###
+ ### @param usecase
+ ###        当前用例定义上下文
+ ### @param stmt
+ ###        调用语句对象
+ ### @param indent
+ ###        代码缩进级别
+ -->
 <#macro print_statement_invocation usecase stmt indent>
   <#local invo = stmt.invocation>
 ${""?left_pad(indent)}helper.${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);      
 </#macro>
 
+<#--
+ ### 生成返回值装配代码。
+ ### <p>
+ ### 该宏并不直接生成 `return` 关键字，而是负责将局部变量的数据“拷贝”或“映射”到
+ ### 预定义的返回值对象（通常命名为 `retVal`）中。
+ ###
+ ### 假设前提:
+ ### 1. 上下文中已经创建了一个名为 `retVal` 的 Output DTO 对象。
+ ### 2. Output DTO 中生成了名为 `copyFrom{Type}` 的辅助方法。
+ ###
+ ### 逻辑流程:
+ ### 1. 遍历需要返回的变量列表。
+ ### 2. 解析变量定义 (Variable Definition)。
+ ### 3. 根据变量类型（集合 vs 单个对象）调用不同的拷贝方法：
+ ###    - 集合类型: 调用 `retVal.copyFrom{PluralName}(var)`
+ ###    - 单个类型: 调用 `retVal.copyFrom{SingularName}(var)`
+ ###
+ ### @param usecase
+ ###        当前用例定义上下文
+ ### @param stmt
+ ###        返回语句对象 (包含要返回的变量名列表)
+ ### @param indent
+ ###        代码缩进级别
+ -->
+<#macro print_statement_return usecase stmt indent>
+  <#list stmt.variables as varname>
+    <#local varObj = usecase.getVariable(varname)>
+    <#if varObj.collection>
+${""?left_pad(indent)}retVal.copyFrom${java.nameType(inflector.pluralize(varObj.type.name))}(${java.nameVariable(varname)});    
+    <#else>
+${""?left_pad(indent)}retVal.copyFrom${java.nameType(varObj.type.name)}(${java.nameVariable(varname)});
+    </#if>
+  </#list>
+</#macro>
+
+<#--
+ ### 生成数据库查询（Find）语句的 Java 代码。
+ ### <p>
+ ### 该宏根据赋值语句右值（RHS）的结构，生成调用 Service 层进行数据查询的代码。
+ ### 支持两种查询模式：
+ ### 1. 集合查询 (Array Value): 查询符合条件的所有记录列表。
+ ### 2. 单对象查询 (Object Value): 查询符合条件的第一条记录。
+ ###
+ ### 核心逻辑 (Core Logic):
+ ### 1. 构建查询对象 (Query DTO) 并取消分页限制 (Limit -1)。
+ ### 2. 绑定查询条件：遍历 DSL 中定义的 `unique` 属性，将其作为查询参数。
+ ###    (注意：假设当前上下文中存在与属性同名的变量作为参数值)。
+ ### 3. 调用 Service 的 `find` 方法。
+ ### 4. 结果处理：
+ ###    - 对于数组：将结果添加到列表。
+ ###    - 对于对象：取结果集的第一条数据 (get(0))。
+ ### 5. 存在性校验：如果 DSL 定义了 `required` 消息，当查询结果为空时抛出 404 异常。
+ ###
+ ### @param usecase
+ ###        当前用例定义上下文
+ ### @param stmt
+ ###        查找/赋值语句对象
+ ### @param indent
+ ###        代码缩进级别
+ -->
 <#macro print_statement_find usecase stmt indent>
   <#local assign = stmt>
   <#local value = assign.value>
@@ -764,11 +845,9 @@ ${""?left_pad(indent)}helper.${java.nameVariable(invo.method)}(<#list invo.argum
     <#local origObj = model.findObjectByName(origObjName)>
 ${""?left_pad(indent)}// 查找【${modelbase.get_object_label(origObj)}】集合对象数据
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
-${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);
-    <#list value.arrayValue.getLabelledOptionAsList("unique","attribute") as attrName>
-      <#local attr = model.findAttributeByNames(origObjName, attrName)>
-${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.${modelbase4java.name_setter(attr)}(${modelbase.get_attribute_sql_name(attr)});
-    </#list>  
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);    
+<#-- 设置查询条件 -->
+<@print_unique_labels_setter varname=(origObjName+"Query") objval=value.arrayValue indent=indent />    
 ${""?left_pad(indent)}List<${java.nameType(origObjName)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();
 ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(assign.assignee)} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);    
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee)}.addAll(page${java.nameType(assign.assignee)}.getData());
@@ -861,7 +940,7 @@ ${""?left_pad(indent)}}
   <#-- [Step 1] 获取唯一性约束配置 -->
   <#-- 尝试获取 "unique" 标签下的 "object" 选项，这代表要查找的领域对象名称 -->
   <#local uniqueObjName = usebase.get_object_unique_object(objVal)>
-  <#local sourceVarName = objVal.getLabelledOption("original", "source")>
+  <#local sourceVarName = objVal.getLabelledOption("original", "source")!"">
   <#if uniqueObjName != "">
     <#--
      ### 如果没有定义 "unique.object"，则无法确定如何查找对象。
@@ -898,6 +977,8 @@ ${""?left_pad(indent)}}
      -->  
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(assign.assignee)} = new ${java.nameType(origObjName)}Query();  
 <@print_two_objects_copy sourceObj=sourceObj sourceVarName=sourceVarName targetObj=model.findObjectByName(origObjName) targetVarName=java.nameVariable(assign.assignee) indent=indent />
+${""?left_pad(indent)}${java.nameType(origObjName)}Query.setDefaultValues(${java.nameVariable(assign.assignee)}, true);
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameType(origObjName)}(${java.nameVariable(assign.assignee)});  
   </#if>
 </#macro>
 
@@ -937,6 +1018,8 @@ ${""?left_pad(indent)}List<${java.nameType(arrayValDataObj.name)}Query> ${java.n
 ${""?left_pad(indent)}for (${java.nameType(varComponentType)}Query row : ${java.nameVariable(sourceVarName)}) {
 ${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query item = new ${java.nameType(arrayValDataObj.name)}Query();
 <@print_two_objects_copy sourceObj=model.findObjectByName(varComponentType) sourceVarName="row" targetObj=arrayValDataObj targetVarName="item" indent=indent+2 />
+${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query.setDefaultValues(item, true);
+${""?left_pad(indent)}  ${java.nameVariable(arrayValDataObj.name)}Service.save${java.nameType(arrayValDataObj.name)}(item);  
   <#list arrayValObj.attributes as attr>
     <#local attrInDataObj = arrayValDataObj.getAttribute(attr.name)>
     <#-- 
@@ -1021,5 +1104,74 @@ ${""?left_pad(indent)}${java.nameVariable(targetVarName)}.set${java.nameType(mod
         </#if>
       </#if>
     </#list>
+  </#list>
+</#macro>
+
+<#--
+ ### 生成唯一性约束或查找条件的属性赋值代码 (Setter)。
+ ### <p>
+ ### 该宏遍历对象值定义中的 "unique" 标签，这些标签通常代表用于数据库查找的唯一键（Unique Keys）。
+ ### 宏会解析标签中的值（可能是字面量、变量引用或静态属性），并生成相应的 Java Setter 代码
+ ### 将这些值设置到目标变量（varname，通常是 Query 对象）中。
+ ###
+ ### 逻辑流程 (Logic Flow):
+ ### 1. 提取标签: 获取对象上的 unique 标签列表。
+ ### 2. 解析元数据:
+ ###    - 解析目标属性 (objAttr)。
+ ###    - 尝试解析源值：可能是静态属性定义 (attrval) 或 上下文变量 (varObj)。
+ ### 3. 生成赋值代码 (由类型决定):
+ ###    - String 字面量: 生成带引号的赋值。
+ ###    - Number 字面量: 生成数字赋值，智能处理 Long 类型后缀。
+ ###    - 变量引用 (Variable):
+ ###        - 集合类型: 生成循环代码，调用 `addXxx` 方法 (用于构建 `IN` 查询)。
+ ###        - 单对象类型: 生成 `setXxx(var.getYyy())` 代码。
+ ###    - 静态引用: 生成常量或枚举值的赋值。
+ ###
+ ### @param varname
+ ###        目标 Java 变量名 (例如 "userQuery")
+ ### @param objval
+ ###        包含唯一性配置的源对象值定义
+ ### @param indent
+ ###        代码缩进级别
+ -->
+<#macro print_unique_labels_setter varname objval indent>
+  <#local uniqueLabels = usebase.get_object_unique_labels(objval)>
+  <#list uniqueLabels as label>
+    <#local objname = label.objname>
+    <#local attrname = label.attrname>
+    <#local attrtype = label.attrtype>
+    <#local value = label.value>
+    <#local objAttr = modelbase.find_attribute_by_names(objname, attrname)!"">
+    <#local attrval = model.findAttributeByNames(attrtype, value)!"">
+    <#local varObj = "">
+    <#if attrval == "">
+      <#local varObj = usecase.getVariable(attrtype)!"">
+    </#if>
+    <#if label.attrtype == "string">
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}("${label.value}");              
+    <#elseif label.attrtype == "number">
+      <#if modelbase4java.type_attribute_primitive(objAttr) == "Long">
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${label.value}L); 
+      <#else>
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${label.value});       
+      </#if>
+    <#elseif varObj != "">
+      <#if varObj.type.collection>
+        <#local compObj = varObj.type.componentType>
+        <#local valueAsDataAttr = model.findAttributeByNames(compObj.name, value)>
+${""?left_pad(indent)}for (${java.nameType(compObj.name)}Query row : ${java.nameVariable(attrtype)}) {
+${""?left_pad(indent)}  ${java.nameVariable(varname)}.add${java.nameType(modelbase.get_attribute_sql_name(objAttr))}(row.${modelbase4java.name_getter(valueAsDataAttr)}()); 
+${""?left_pad(indent)}}
+      <#else>
+        <#local valueAsDataAttr = model.findAttributeByNames(varObj.type.name, value)!"">
+        <#if valueAsDataAttr != "">
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase4java.get_attribute_sql_name(valueAsDataAttr)});
+        </#if> 
+      </#if>       
+    <#elseif attrval != "">
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(attrval)}); 
+    <#elseif objAttr != "">
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(objAttr)});    
+    </#if>     
   </#list>
 </#macro>

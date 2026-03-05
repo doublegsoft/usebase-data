@@ -299,7 +299,6 @@
           </#if>
         </#list>
       <#elseif value.objectValue??>
-        <#local origObjName = value.objectValue.getLabelledOption("original","object")>  
         <#list value.objectValue.attributes as attr>
           <#if attr.value?? && attr.value.calcExpr??>
             <#list operands as operand>
@@ -370,9 +369,14 @@
   <#local uniqueAttrTypes = obj.getLabelledOptionAsList("unique", "type")>
   <#local uniqueAttrVals = obj.getLabelledOptionAsList("unique", "value")>
   <#list 0..(uniqueObjNames?size - 1) as idx>
+    <#local uniqueObjName = uniqueObjNames[idx]>
+    <#local uniqueAttrName = uniqueAttrNames[idx]>
+    <#if uniqueObjName == "">
+      <#local uniqueObjName = obj.name>
+    </#if>
     <#local ret += [{
-      "objname": uniqueObjNames[idx],
-      "attrname": uniqueAttrNames[idx],
+      "objname": uniqueObjName,
+      "attrname": uniqueAttrName,
       "attrtype": uniqueAttrTypes[idx],
       "value": uniqueAttrVals[idx]
     }]>

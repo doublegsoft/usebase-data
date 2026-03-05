@@ -325,12 +325,12 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
       <#assign origobj = attr.getLabelledOption("original", "object")!"">
       <#assign opname = attr.getLabelledOption("original", "operator")!"">
       <#if origobj != "" && !retObjs[origobj]?? && opname == "">
-        <#assign retObjs += {origobj:origobj}>
+        <#--  <#assign retObjs += {origobj:origobj}>
         <#if attr.type.collection>
     retVal.copyFrom${java.nameType(inflector.pluralize(origobj))}(${java.nameVariable(inflector.pluralize(origobj))});    
         <#else>
     retVal.copyFrom${java.nameType(origobj)}(${java.nameVariable(origobj)});
-        </#if>
+        </#if>  -->
       <#elseif origobj == "" || opname != "">
     retVal.set${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
       </#if>
