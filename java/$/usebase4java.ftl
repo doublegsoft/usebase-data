@@ -656,7 +656,7 @@ ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameTy
   <#local update = stmt>
   <#if update.saveObject??>
     <#local updateObjName = update.saveObject.name?replace("#", "")>
-${""?left_pad(indent)}${java.nameType(updateObjName)}Query ${java.nameVariable(updateObjName)}Query = new ${java.nameType(updateObjName)}Query();
+${""?left_pad(indent)}${java.nameVariable(updateObjName)}Query = new ${java.nameType(updateObjName)}Query();
 <#-- 设置更新条件 -->    
 <@print_unique_labels_setter varname=(updateObjName + "Query") objval=update.saveObject indent=indent />     
 ${""?left_pad(indent)}${java.nameType(updateObjName)}Query ${java.nameVariable(updateObjName)} = ${java.nameVariable(updateObjName)}Service.get${java.nameType(updateObjName)}(${java.nameVariable(updateObjName)}Query);
@@ -844,7 +844,7 @@ ${""?left_pad(indent)}retVal.copyFrom${java.nameType(varObj.type.name)}(${java.n
     <#local message = value.arrayValue.getLabelledOption("required", "message")!"">
     <#local origObj = model.findObjectByName(origObjName)>
 ${""?left_pad(indent)}// 查找【${modelbase.get_object_label(origObj)}】集合对象数据
-${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
 ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);    
 <#-- 设置查询条件 -->
 <@print_unique_labels_setter varname=(origObjName+"Query") objval=value.arrayValue indent=indent />    
@@ -859,12 +859,10 @@ ${""?left_pad(indent)}}
     <#local message = value.objectValue.getLabelledOption("required", "message")!"">
     <#local origObj = model.findObjectByName(origObjName)>
 ${""?left_pad(indent)}// 查找【${modelbase.get_object_label(origObj)}】对象数据
-${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
-${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);
-    <#list value.objectValue.getLabelledOptionAsList("unique","attribute") as attrName>
-      <#local attr = model.findAttributeByNames(origObjName, attrName)>
-${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.${modelbase4java.name_setter(attr)}(${modelbase.get_attribute_sql_name(attr)});
-    </#list>  
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1); 
+<#-- 设置查询条件 -->
+<@print_unique_labels_setter varname=(origObjName+"Query") objval=value.objectValue indent=indent /> 
 ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(inflector.pluralize(origObjName))} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);  
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(assign.assignee)} = null;
 ${""?left_pad(indent)}if (!page${java.nameType(inflector.pluralize(origObjName))}.getData().isEmpty()) {
@@ -1147,15 +1145,15 @@ ${""?left_pad(indent)}${java.nameVariable(targetVarName)}.set${java.nameType(mod
     <#if attrval == "">
       <#local varObj = usecase.getVariable(attrtype)!"">
     </#if>
-    <#if label.attrtype == "string">
+    <#if attrtype == "string"><#-- 字符串常量作为值 -->
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}("${label.value}");              
-    <#elseif label.attrtype == "number">
+    <#elseif attrtype == "number"><#-- 数字常量作为值 -->
       <#if modelbase4java.type_attribute_primitive(objAttr) == "Long">
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${label.value}L); 
       <#else>
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${label.value});       
       </#if>
-    <#elseif varObj != "">
+    <#elseif varObj != ""><#-- usecase中注册的变量作为值 -->
       <#if varObj.type.collection>
         <#local compObj = varObj.type.componentType>
         <#local valueAsDataAttr = model.findAttributeByNames(compObj.name, value)>
@@ -1165,13 +1163,46 @@ ${""?left_pad(indent)}}
       <#else>
         <#local valueAsDataAttr = model.findAttributeByNames(varObj.type.name, value)!"">
         <#if valueAsDataAttr != "">
-${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase4java.get_attribute_sql_name(valueAsDataAttr)});
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${java.nameVariable(varObj.name)}.${modelbase4java.name_getter(valueAsDataAttr)}());
         </#if> 
       </#if>       
-    <#elseif attrval != "">
+    <#elseif attrval != ""><#-- FIXME: 显示引用的属性作为值（描述不准确）-->
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(attrval)}); 
-    <#elseif objAttr != "">
+    <#elseif attrtype == value><#-- NOTE -->
+      <#local strs = attrtype?split(".")>
+      <#if strs?size == 1>
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(objAttr)}());   
+      <#else>
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${java.nameVariable(strs[0])}.${modelbase4java.name_getter(objAttr)}());         
+      </#if>     
+    <#elseif objAttr != ""><#-- FIXME: 隐式引用的属性作为值（描述不准确） -->
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(objAttr)});    
     </#if>     
+  </#list>
+</#macro>
+
+<#macro print_variables_in_statements usecase indent>
+  <#local printedVars = {}>
+  <#list usecase.statements as stmt>
+    <#if stmt.value?? && stmt.value.objectValue??>
+      <#local origObjName = stmt.value.objectValue.getLabelledOption("original","object")>
+      <#if !printedVars[origObjName]??>
+${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = null;
+        <#local printedVars = printedVars + {origObjName: true}>
+      </#if>
+    <#elseif stmt.value?? && stmt.value.arrayValue??>
+      <#local origObjName = stmt.value.arrayValue.getLabelledOption("original","object")>
+      <#if !printedVars[origObjName]??>
+${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = null;
+        <#local printedVars = printedVars + {origObjName: true}>  
+      </#if>
+    <#elseif stmt.saveObject??>
+      <#local origObjName = stmt.saveObject.getLabelledOption("original","object")!"">
+      <#if origObjName == ""><#-- FIXME: 注意此处 --><#continue></#if>
+      <#if !printedVars[origObjName]??>
+${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = null;
+        <#local printedVars = printedVars + {origObjName: true}>  
+      </#if>
+    </#if>
   </#list>
 </#macro>

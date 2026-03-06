@@ -160,6 +160,8 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     </#if>
   </#if>  
 </#list>
+<#-- 在语句中潜在的对象查询变量 -->
+<@usebase4java.print_variables_in_statements usecase=usecase indent=4 />  
 <#---------------->
 <#-- 必要字段校验 -->
 <#---------------->
@@ -174,6 +176,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#-- 对象标识字段（潜在）赋值 -->
 <#-------------------------->
 <#if assignedIdAttr??>
+    // FIXME 
     if (Strings.isBlank(${java.nameVariable(assignedIdAttr.name)})) {
       ${java.nameVariable(assignedIdAttr.name)} = IdGenerator.id();
     }
@@ -192,7 +195,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   <#assign uniqueObj = model.findObjectByName(uniqueObjName)>
   <#assign uniqueObjIdAttr = modelbase.get_id_attributes(uniqueObj)?first>
   <#assign uniqueAttrNames = paramObj.getLabelledOptionAsList("unique", "attribute")>
-    ${java.nameType(uniqueObjName)}Query ${java.nameVariable(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
+    ${java.nameVariable(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
   <#list uniqueAttrNames as attrname>
     ${java.nameVariable(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});
   </#list>  

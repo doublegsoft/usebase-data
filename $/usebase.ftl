@@ -362,6 +362,31 @@
   <#return ret>
 </#function>
 
+<#--
+ ### 解析并结构化对象上的 "unique" 唯一性查找标签。
+ ### <p>
+ ### 该函数用于提取对象定义中关于唯一性查找（Lookup/Reference）的配置信息。
+ ### 由于底层模型将标签选项存储为多个平行的列表（Parallel Lists），该函数负责将它们
+ ### “缝合”成易于遍历的结构化数据列表。
+ ###
+ ### 逻辑流程 (Logic Flow):
+ ### 1. 提取元数据: 获取 unique 标签下的 object, attribute, type, value 四个平行列表。
+ ### 2. 遍历合并: 基于索引遍历列表。
+ ### 3. 默认值处理: 如果配置中未指定目标对象名 (unique.object)，则默认使用当前对象的名称。
+ ### 4. 结构化返回: 返回包含查找详情的 Map 列表。
+ ###
+ ### 返回数据结构示例:
+ ### [
+ ###   { "objname": "User", "attrname": "id", "attrtype": "Long", "value": "1001" },
+ ###   { "objname": "User", "attrname": "type", "attrtype": "String", "value": "ADMIN" }
+ ### ]
+ ###
+ ### @param obj
+ ###        包含 unique 标签配置的对象/值定义 (ObjectValue/Definition)
+ ###
+ ### @return
+ ###        包含查找条件的结构化 Map 列表
+ -->
 <#function get_object_unique_labels obj>
   <#local ret = []>
   <#local uniqueObjNames = obj.getLabelledOptionAsList("unique", "object")>
@@ -435,6 +460,23 @@
   <#return ret>
 </#function>
 
+<#--
+ ### 获取 "unique" 唯一性标签中配置的目标对象名称。
+ ### <p>
+ ### 该函数用于解析查找配置，确定需要查询哪个领域对象。
+ ### 由于底层存储结构的差异（可能是单值也可能是列表），该函数实现了兼容性读取逻辑。
+ ###
+ ### 逻辑流程 (Logic Flow):
+ ### 1. 尝试直接读取: 使用 getLabelledOption 获取单个字符串值。
+ ### 2. 列表回退 (Fallback): 如果直接读取为空，则尝试以列表形式读取 (getLabelledOptionAsList)。
+ ### 3. 提取首项: 如果列表不为空，取第一个元素作为对象名称。
+ ###
+ ### @param objVal
+ ###        包含标签配置的对象值定义
+ ###
+ ### @return
+ ###        目标对象名称 (String)，如果未找到则返回空字符串
+ -->
 <#function get_object_unique_object objVal>
   <#local ret = "">
   <#local ret = objVal.getLabelledOption("unique", "object")!"">
