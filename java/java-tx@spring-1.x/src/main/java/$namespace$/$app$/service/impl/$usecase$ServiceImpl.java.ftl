@@ -175,8 +175,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#-------------------------->
 <#-- 对象标识字段（潜在）赋值 -->
 <#-------------------------->
-<#if assignedIdAttr??>
-    // FIXME 
+<#if assignedIdAttr?? && assignedIdAttr.constraint.nullable>
     if (Strings.isBlank(${java.nameVariable(assignedIdAttr.name)})) {
       ${java.nameVariable(assignedIdAttr.name)} = IdGenerator.id();
     }

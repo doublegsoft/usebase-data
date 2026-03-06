@@ -587,7 +587,11 @@ ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname
   <#elseif stmt.operator?ends_with("&|")>
 <@print_statement_find usecase=usecase stmt=stmt indent=indent />    
   <#elseif stmt.operator?ends_with(".|")>
-<@print_statement_return usecase=usecase stmt=stmt indent=indent />   
+<@print_statement_return usecase=usecase stmt=stmt indent=indent />
+  <#elseif stmt.operator?ends_with("*|")>
+<@print_statement_loop usecase=usecase stmt=stmt indent=indent />
+  <#elseif stmt.operator?ends_with("?|")>
+<@print_statement_if usecase=usecase stmt=stmt indent=indent />   
   </#if>
 </#macro>
 
@@ -873,6 +877,19 @@ ${""?left_pad(indent)}  throw new ServiceException(404, "${message}");
     </#if>
 ${""?left_pad(indent)}}
   </#if>
+</#macro>
+
+<#macro print_statement_loop usecase stmt indent>
+  <#local loop = stmt>
+${""?left_pad(indent)}for (${java.nameType(loop.componentType.name)}Query ${java.nameVariable(loop.itemVar)} : ${java.nameVariable(loop.arrayVar)}) {
+  <#list loop.statements as innerStmt>
+<@print_statement usecase=usecase stmt=innerStmt indent=indent+2 />
+  </#list>
+${""?left_pad(indent)}}
+</#macro>
+
+<#macro print_statement_if usecase stmt indent>
+${""?left_pad(indent)}// hello, this is if-statement
 </#macro>
 
 <#macro print_statements_for_value_array value indent>
@@ -1173,7 +1190,13 @@ ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter
       <#if strs?size == 1>
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(objAttr)}());   
       <#else>
-${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${java.nameVariable(strs[0])}.${modelbase4java.name_getter(objAttr)}());         
+        <#if usecase.getVariable(strs[0])??>
+          <#local varObj = usecase.getVariable(strs[0])>
+          <#local valueAttr = modelbase.find_attribute_by_names(varObj.type.name, strs[1])>
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${java.nameVariable(strs[0])}.${modelbase4java.name_getter(valueAttr)}());     
+        <#else>
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${java.nameVariable(strs[0])}.${modelbase4java.name_getter(objAttr)}());  
+        </#if>       
       </#if>     
     <#elseif objAttr != ""><#-- FIXME: 隐式引用的属性作为值（描述不准确） -->
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(objAttr)});    
@@ -1181,6 +1204,24 @@ ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter
   </#list>
 </#macro>
 
+<#--
+ ### 扫描并预声明用例中涉及的所有 Query 变量。
+ ### <p>
+ ### 该宏遍历 UseCase 中的所有语句（Statements），识别出所有被引用、查询或保存的领域对象。
+ ### 为了确保变量在生成的 Java 方法中具有正确的作用域（Scope），它会在方法体开始处
+ ### 统一生成变量声明代码（初始化为 null）。
+ ###
+ ### 逻辑流程 (Logic Flow):
+ ### 1. 初始化去重集合 (printedVars): 防止同一个类型的变量被重复声明。
+ ### 2. 遍历语句: 检查赋值语句（对象/数组）和保存语句。
+ ### 3. 提取对象名: 从 "original.object" 标签中获取领域对象名称。
+ ### 4. 生成声明: 如果该对象尚未声明，生成 `TypeNameQuery varNameQuery = null;` 代码。
+ ###
+ ### @param usecase
+ ###        当前用例定义上下文
+ ### @param indent
+ ###        代码缩进级别
+ -->
 <#macro print_variables_in_statements usecase indent>
   <#local printedVars = {}>
   <#list usecase.statements as stmt>
