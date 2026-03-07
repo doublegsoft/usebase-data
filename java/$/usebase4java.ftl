@@ -183,7 +183,6 @@
   <#list 1..(objSize-1) as index>
     <#local obj = associationChain.getAssociatingObjects()[index]>
     <#if masterObjs[obj.name]??><#continue></#if>
-${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)}Query = null;
 ${""?left_pad(indent)}Integer ${java.nameVariable(obj.name)}RowIndex = 0;
 ${""?left_pad(indent)}Map<Object,Integer> ${java.nameVariable(obj.name)}IdIndexes = new HashMap<>();
     <#local masterObjs += {obj.name:obj.name}>
@@ -310,9 +309,6 @@ ${""?left_pad(indent)}List<Map<String,Object>> ${java.nameVariable(inflector.plu
   <#local retObj = usecase.returnedObject>
   <#local singleObjs = usebase.group_single_objects(paramObj)>
   <#local arrayObjs = usebase.group_array_objects(paramObj)>
-  <#list singleObjs?values as obj>
-${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)} = null;
-  </#list>
   <#------------------->
   <#-- 1. 查询参数校验 -->
   <#------------------->
@@ -348,7 +344,7 @@ ${""?left_pad(indent)}if (!Objects.isEmpty(${java.nameVariable(attr.name)})<#if 
 ${""?left_pad(indent)}    !Objects.isEmpty(${java.nameVariable(attr.name)})<#if attr?index != attrs?size - 1> &&<#else>) {</#if>
       </#if>
     </#list>
-${""?left_pad(indent)}  ${java.nameType(obj.name)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
+${""?left_pad(indent)}  ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
     <#list attrs as attr>
 ${""?left_pad(indent)}  ${java.nameVariable(objname)}Query.set${java.nameType(modelbase.get_attribute_sql_name(attr))}(${java.nameVariable(modelbase.get_attribute_sql_name(attr))});
     </#list>
@@ -368,7 +364,7 @@ ${""?left_pad(indent)}}
   <#local singleObjs = usebase.group_single_objects(retObj)>
   <#local arrayObjs = usebase.group_array_objects(retObj)>
   <#list relatingObjs as obj>
-${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)}Query = new ${java.nameType(obj.name)}Query();  
+${""?left_pad(indent)}${java.nameVariable(obj.name)}Query = new ${java.nameType(obj.name)}Query();  
 ${""?left_pad(indent)}${java.nameVariable(obj.name)}Query.setLimit(-1);
   </#list>
   <#-------------------------------------->
@@ -495,7 +491,7 @@ ${""?left_pad(indent)}}
     <#local masterObj = model.findObjectByName(masterObjName)>
     <#local masterObjIdAttr = modelbase.get_id_attributes(masterObj)?first>
     <#-- 生成主对象的保存代码 -->
-${""?left_pad(indent)}${typeName}Query ${varName}Query = new ${typeName}Query();
+${""?left_pad(indent)}${varName}Query = new ${typeName}Query();
     <#list paramObj.attributes as attr>
       <#if attr.isLabelled("original") && (attr.getLabelledOption("original", "object")!"") == masterObjName>
         <#local targetAttrName = attr.getLabelledOption("original", "attribute")>
@@ -503,7 +499,7 @@ ${""?left_pad(indent)}${typeName}Query ${varName}Query = new ${typeName}Query();
 ${""?left_pad(indent)}${varName}Query.${modelbase4java.name_setter(targetAttr)}(params.get${java.nameType(attr.name)}());
       </#if>
     </#list>
-${""?left_pad(indent)}${typeName}Query ${varName} = ${varName}Service.save${typeName}(${varName}Query);
+${""?left_pad(indent)}${varName} = ${varName}Service.save${typeName}(${varName}Query);
   </#if>
   <#list slaveObjNames?keys as objname>
     <#local slaveObj = model.findObjectByName(objname)>
@@ -567,7 +563,7 @@ ${""?left_pad(indent)}${java.nameVariable(attr.name)}For${java.nameType(conjObjN
         </#if>
       </#list>
     <#else>
-${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
+${""?left_pad(indent)}${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
 ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname)} = ${java.nameVariable(objname)}Service.save${java.nameType(objname)}(${java.nameVariable(objname)}Query);
     </#if>
   </#list>
@@ -631,7 +627,7 @@ ${""?left_pad(indent)}}
         <#local targetObjIdAttr = modelbase.get_id_attributes(model.findObjectByName(targetObjName))?first>
 ${""?left_pad(indent)}List<${java.nameType(saveObjName)}Query> ${java.nameVariable(save.variable)} = new ArrayList<>();
 ${""?left_pad(indent)}for (${java.nameType(origObjName)}Info row : ${java.nameVariable(conjedAttr.name)}) {
-${""?left_pad(indent)}  ${java.nameType(saveObjName)}Query ${java.nameVariable(saveObjName)} = new ${java.nameType(saveObjName)}Query();
+${""?left_pad(indent)}  ${java.nameVariable(saveObjName)} = new ${java.nameType(saveObjName)}Query();
 ${""?left_pad(indent)}  ${java.nameType(saveObjName)}Query.setDefaultValues(${java.nameVariable(saveObjName)}, true);
 ${""?left_pad(indent)}  ${java.nameVariable(saveObjName)}.set${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(origObjIdAttr))}());
 ${""?left_pad(indent)}  ${java.nameVariable(saveObjName)}.set${java.nameType(modelbase.get_attribute_sql_name(targetObjIdAttr))}(${java.nameVariable(targetObjName)}.get${java.nameType(modelbase.get_attribute_sql_name(targetObjIdAttr))}());
@@ -640,7 +636,7 @@ ${""?left_pad(indent)}}
 ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(inflector.pluralize(saveObjName))}(${java.nameVariable(save.variable)});  
       </#if>  
     <#else>
-${""?left_pad(indent)}${java.nameType(saveObjName)}Query ${java.nameVariable(save.variable)} = new ${java.nameType(saveObjName)}Query();
+${""?left_pad(indent)}${java.nameVariable(save.variable)} = new ${java.nameType(saveObjName)}Query();
   <#list save.saveObject.attributes as attr>
     <#if attr.value??>
 ${""?left_pad(indent)}${java.nameVariable(save.variable)}.set${java.nameType(attr.name)}(${usebase4java.get_attribute_default_value(attr)});    
@@ -663,7 +659,7 @@ ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameTy
 ${""?left_pad(indent)}${java.nameVariable(updateObjName)}Query = new ${java.nameType(updateObjName)}Query();
 <#-- 设置更新条件 -->    
 <@print_unique_labels_setter varname=(updateObjName + "Query") objval=update.saveObject indent=indent />     
-${""?left_pad(indent)}${java.nameType(updateObjName)}Query ${java.nameVariable(updateObjName)} = ${java.nameVariable(updateObjName)}Service.get${java.nameType(updateObjName)}(${java.nameVariable(updateObjName)}Query);
+${""?left_pad(indent)}${java.nameVariable(updateObjName)} = ${java.nameVariable(updateObjName)}Service.get${java.nameType(updateObjName)}(${java.nameVariable(updateObjName)}Query);
 ${""?left_pad(indent)}if (${java.nameVariable(updateObjName)} == null) {
 ${""?left_pad(indent)}  throw new ServiceException(404, "${modelbase.get_object_label(model.findObjectByName(updateObjName))}不存在");
 ${""?left_pad(indent)}}
@@ -868,7 +864,6 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);
 <#-- 设置查询条件 -->
 <@print_unique_labels_setter varname=(origObjName+"Query") objval=value.objectValue indent=indent /> 
 ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(inflector.pluralize(origObjName))} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);  
-${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(assign.assignee)} = null;
 ${""?left_pad(indent)}if (!page${java.nameType(inflector.pluralize(origObjName))}.getData().isEmpty()) {
 ${""?left_pad(indent)}  ${java.nameVariable(assign.assignee)} = page${java.nameType(inflector.pluralize(origObjName))}.getData().get(0);
     <#if message != "">
@@ -975,7 +970,7 @@ ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameT
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});        
       </#if>
     </#list>
-${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query ${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
+${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
     <#if objVal.isLabelled("required")>    
 ${""?left_pad(indent)}// 校验对象是否存在
 ${""?left_pad(indent)}if (${java.nameVariable(assign.assignee)} == null) {
@@ -990,7 +985,7 @@ ${""?left_pad(indent)}}
      ### 直接从其他的变量作为数据源头，产生新的对象实例，
      ### 赋值给新实例。
      -->  
-${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(assign.assignee)} = new ${java.nameType(origObjName)}Query();  
+${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = new ${java.nameType(origObjName)}Query();  
 <@print_two_objects_copy sourceObj=sourceObj sourceVarName=sourceVarName targetObj=model.findObjectByName(origObjName) targetVarName=java.nameVariable(assign.assignee) indent=indent />
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query.setDefaultValues(${java.nameVariable(assign.assignee)}, true);
 ${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameType(origObjName)}(${java.nameVariable(assign.assignee)});  
@@ -1033,8 +1028,6 @@ ${""?left_pad(indent)}List<${java.nameType(arrayValDataObj.name)}Query> ${java.n
 ${""?left_pad(indent)}for (${java.nameType(varComponentType)}Query row : ${java.nameVariable(sourceVarName)}) {
 ${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query item = new ${java.nameType(arrayValDataObj.name)}Query();
 <@print_two_objects_copy sourceObj=model.findObjectByName(varComponentType) sourceVarName="row" targetObj=arrayValDataObj targetVarName="item" indent=indent+2 />
-${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query.setDefaultValues(item, true);
-${""?left_pad(indent)}  ${java.nameVariable(arrayValDataObj.name)}Service.save${java.nameType(arrayValDataObj.name)}(item);  
   <#list arrayValObj.attributes as attr>
     <#local attrInDataObj = arrayValDataObj.getAttribute(attr.name)>
     <#-- 
@@ -1048,6 +1041,8 @@ ${""?left_pad(indent)}  ${java.nameVariable(arrayValDataObj.name)}Service.save${
 ${""?left_pad(indent)}  item.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(null); 
     </#if>
   </#list>
+${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query.setDefaultValues(item, true);  
+${""?left_pad(indent)}  ${java.nameVariable(arrayValDataObj.name)}Service.save${java.nameType(arrayValDataObj.name)}(item);    
 ${""?left_pad(indent)}  ${java.nameVariable(assign.assignee)}.add(item);
 ${""?left_pad(indent)}}
   <#-- [Step 4] 唯一性/引用查找元数据准备 (逻辑似乎未完结) -->
@@ -1076,7 +1071,7 @@ ${""?left_pad(indent)}// 处理计算表达式：${value.originalText}
     <#list operands as operand>
       <#local originalObjName = operand.objectValue.getLabelledOption("original", "object")>
       <#local operandUniques = usebase.get_operand_unique_labels(operand)>
-${""?left_pad(indent)}${java.nameType(originalObjName)}Query ${java.nameVariable(originalObjName)}Query = new ${java.nameType(originalObjName)}Query();
+${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query = new ${java.nameType(originalObjName)}Query();
       <#list operandUniques as operandUnique>
         <#if operandUnique.attrtype == operandUnique.value>
 ${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(operandUnique.attrname)}(row.get${java.nameType(operandUnique.value)}());
@@ -1205,45 +1200,107 @@ ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter
 </#macro>
 
 <#--
- ### 扫描并预声明用例中涉及的所有 Query 变量。
+ ### 扫描用例涉及的所有领域对象，并生成 Service 依赖注入字段 (@Inject)。
  ### <p>
- ### 该宏遍历 UseCase 中的所有语句（Statements），识别出所有被引用、查询或保存的领域对象。
- ### 为了确保变量在生成的 Java 方法中具有正确的作用域（Scope），它会在方法体开始处
- ### 统一生成变量声明代码（初始化为 null）。
- ###
- ### 逻辑流程 (Logic Flow):
- ### 1. 初始化去重集合 (printedVars): 防止同一个类型的变量被重复声明。
- ### 2. 遍历语句: 检查赋值语句（对象/数组）和保存语句。
- ### 3. 提取对象名: 从 "original.object" 标签中获取领域对象名称。
- ### 4. 生成声明: 如果该对象尚未声明，生成 `TypeNameQuery varNameQuery = null;` 代码。
+ ### 该宏用于分析 UseCase 的整体结构，识别出所有需要交互的领域对象，并自动注入对应的 Service。
+ ### 识别范围包括：
+ ### 1. 直接引用: 语句中直接操作的对象。
+ ### 2. 聚合链: 返回值对象结构中涉及的聚合对象（如主从表、统计对象）。
+ ### 3. 关联链: 输入参数到返回值之间路径上的中间对象。
  ###
  ### @param usecase
- ###        当前用例定义上下文
+ ###        当前用例定义对象
  ### @param indent
  ###        代码缩进级别
  -->
-<#macro print_variables_in_statements usecase indent>
-  <#local printedVars = {}>
+<#macro print_services_for_usecase usecase indent>
+  <#local printedObjs = {}>
+  <#local usingDirectDataObjs = usecase.getDataObjects()>
+  <#list usingDirectDataObjs as dataObj>
+    <#local printedObjs += {dataObj.name:dataObj.name}>
+
+${""?left_pad(indent)}@Inject
+${""?left_pad(indent)}private ${java.nameType(dataObj.name)}Service ${java.nameVariable(dataObj.name)}Service;
+  </#list>
+  <#local aggregateChain = aggregateBuilder.build(usecase.returnedObject)>
+  <#local objRelsList = aggregateChain.build()>
+  <#list aggregateChain.getObjects() as obj>
+    <#if printedObjs[obj.name]??><#continue></#if>
+    <#local printedObjs += {obj.name:obj.name}>
+
+${""?left_pad(indent)}@Inject
+${""?left_pad(indent)}private ${java.nameType(obj.name)}Service ${java.nameVariable(obj.name)}Service;
+  </#list>
+  <#---------------------------------->
+  <#-- 参数和返回值关联对象需要的服务对象 -->
+  <#---------------------------------->
+  <#local associationChain = associationBuilder.build(usecase.parameterizedObject, usecase.returnedObject)>
+  <#local objSize = associationChain.getAssociatingObjects()?size>
+  <#if (objSize > 2)>
+    <#list 1..(objSize-2) as index>
+      <#local obj = associationChain.getAssociatingObjects()[index]>
+      <#if printedObjs[obj.name]??><#continue></#if>
+      <#local printedObjs += {obj.name:obj.name}>
+
+${""?left_pad(indent)}@Inject
+${""?left_pad(indent)}private ${java.nameType(obj.name)}Service ${java.nameVariable(obj.name)}Service;
+    </#list>
+  </#if>
+</#macro>
+
+<#--
+ ### 扫描用例涉及的所有领域对象，并生成 Query 变量声明代码。
+ ### <p>
+ ### 该宏与 `print_services_for_usecase` 逻辑类似，用于预先声明所需的 Query 对象变量。
+ ### 通常用于方法体开头，或者测试用例的准备阶段。
+ ###
+ ### 逻辑流程:
+ ### 1. 扫描直接使用对象。
+ ### 2. 扫描聚合链对象。
+ ### 3. 扫描关联链中间对象。
+ ###
+ ### @param usecase
+ ###        当前用例定义对象
+ ### @param indent
+ ###        代码缩进级别
+ -->
+<#macro print_variables_for_usecase usecase indent>
+  <#local printedObjs = {}>
+  <#local usingDirectDataObjs = usecase.getDataObjects()>
+  <#list usingDirectDataObjs as dataObj>
+    <#local printedObjs += {dataObj.name:dataObj.name}>
+${""?left_pad(indent)}${java.nameType(dataObj.name)}Query ${java.nameVariable(dataObj.name)}Query = null;
+${""?left_pad(indent)}${java.nameType(dataObj.name)}Query ${java.nameVariable(dataObj.name)} = null;
+  </#list>
+  <#local aggregateChain = aggregateBuilder.build(usecase.returnedObject)>
+  <#local objRelsList = aggregateChain.build()>
+  <#list aggregateChain.getObjects() as obj>
+    <#if printedObjs[obj.name]??><#continue></#if>
+    <#local printedObjs += {obj.name:obj.name}>
+${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)}Query = null;
+${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)} = null;
+  </#list>
+  <#---------------------------------->
+  <#-- 参数和返回值关联对象需要的服务对象 -->
+  <#---------------------------------->
+  <#local associationChain = associationBuilder.build(usecase.parameterizedObject, usecase.returnedObject)>
+  <#local objSize = associationChain.getAssociatingObjects()?size>
+  <#if (objSize > 2)>
+    <#list 1..(objSize-2) as index>
+      <#local obj = associationChain.getAssociatingObjects()[index]>
+      <#if printedObjs[obj.name]??><#continue></#if>
+      <#local printedObjs += {obj.name:obj.name}>
+${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)}Query = null;
+${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)} = null;
+    </#list>
+  </#if>
   <#list usecase.statements as stmt>
-    <#if stmt.value?? && stmt.value.objectValue??>
-      <#local origObjName = stmt.value.objectValue.getLabelledOption("original","object")>
-      <#if !printedVars[origObjName]??>
-${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = null;
-        <#local printedVars = printedVars + {origObjName: true}>
-      </#if>
-    <#elseif stmt.value?? && stmt.value.arrayValue??>
-      <#local origObjName = stmt.value.arrayValue.getLabelledOption("original","object")>
-      <#if !printedVars[origObjName]??>
-${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = null;
-        <#local printedVars = printedVars + {origObjName: true}>  
-      </#if>
-    <#elseif stmt.saveObject??>
-      <#local origObjName = stmt.saveObject.getLabelledOption("original","object")!"">
-      <#if origObjName == ""><#-- FIXME: 注意此处 --><#continue></#if>
-      <#if !printedVars[origObjName]??>
-${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}Query = null;
-        <#local printedVars = printedVars + {origObjName: true}>  
-      </#if>
+    <#if stmt.assignee??>
+      <#if printedObjs[stmt.assignee]??><#continue></#if>
+      <#if stmt.value.objectValue??>
+        <#local origObjName = stmt.value.objectValue.getLabelledOption("original", "object")>
+${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(stmt.assignee)} = null;  
+      </#if>    
     </#if>
   </#list>
 </#macro>

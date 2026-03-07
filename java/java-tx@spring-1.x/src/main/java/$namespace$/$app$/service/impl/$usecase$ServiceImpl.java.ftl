@@ -41,69 +41,9 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   @Inject
   private ${java.nameType(usecase.name)}Helper helper;
 <#----------------------->
-<#-- 返回值需要的服务对象 -->
+<#-- 用例直接引用到的服务对象 -->
 <#----------------------->
-<#assign printedObjs = {}>
-<#assign aggregateChain = aggregateBuilder.build(retObj)>
-<#assign objRelsList = aggregateChain.build()>
-<#list aggregateChain.getObjects() as obj>
-  <#if printedObjs[obj.name]??><#continue></#if>
-  <#assign printedObjs += {obj.name:obj.name}>
-
-  @Inject
-  private ${java.nameType(obj.name)}Service ${java.nameVariable(obj.name)}Service;
-</#list>
-<#if usecase.returnedObject??>
-  <#list usecase.returnedObject.attributes as attr>
-  <#assign conjObjName = attr.getLabelledOption("conjunction", "object")!"">
-  <#if conjObjName == "">
-    <#assign conjObjName = attr.getLabelledOption("conjunction", "name")!"">
-  </#if>
-  <#if conjObjName == "" || printedObjs[conjObjName]??><#continue></#if>
-  <#assign printedObjs += {conjObjName:conjObjName}>
-  
-  @Inject
-  private ${java.nameType(conjObjName)}Service ${java.nameVariable(conjObjName)}Service;
-</#list>
-</#if>
-<#---------------------------------->
-<#-- 参数和返回值关联对象需要的服务对象 -->
-<#---------------------------------->
-<#assign associationChain = associationBuilder.build(paramObj, retObj)>
-<#assign objSize = associationChain.getAssociatingObjects()?size>
-<#if (objSize > 2)>
-<#list 1..(objSize-2) as index>
-  <#assign obj = associationChain.getAssociatingObjects()[index]>
-  <#if printedObjs[obj.name]??><#continue></#if>
-  <#assign printedObjs += {obj.name:obj.name}>
-
-  @Inject
-  private ${java.nameType(obj.name)}Service ${java.nameVariable(obj.name)}Service;
-</#list>
-</#if>
-<#----------------------->
-<#-- 从参数推导的服务对象 -->
-<#----------------------->
-<#list paramObj.attributes as attr>
-  <#if !attr.isLabelled("original")><#continue></#if>
-  <#assign objname = attr.getLabelledOption("original", "object")!"">
-  <#if objname == "" || printedObjs[objname]??><#continue></#if>
-  <#assign printedObjs += {objname:objname}>
-  
-  @Inject
-  private ${java.nameType(objname)}Service ${java.nameVariable(objname)}Service;
-</#list>
-<#------------------------------->
-<#-- 显式的方法逻辑中用到的服务对象 -->
-<#------------------------------->
-<#assign objsInStmts = usebase.get_objects_from_statements(usecase)>
-<#list objsInStmts as objInData>
-  <#if printedObjs[objInData.name]??><#continue></#if>
-  <#assign printedObjs += {objInData.name:objInData}>
-
-  @Inject
-  private ${java.nameType(objInData.name)}Service ${java.nameVariable(objInData.name)}Service;    
-</#list>
+<@usebase4java.print_services_for_usecase usecase=usecase indent=4 />
 
 <#if isArray == "true">
   public List<${java.nameType(usecase.name)}Result> ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException {
@@ -161,7 +101,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   </#if>  
 </#list>
 <#-- 在语句中潜在的对象查询变量 -->
-<@usebase4java.print_variables_in_statements usecase=usecase indent=4 />  
+<@usebase4java.print_variables_for_usecase usecase=usecase indent=4 />
 <#---------------->
 <#-- 必要字段校验 -->
 <#---------------->

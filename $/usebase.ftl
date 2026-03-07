@@ -1,3 +1,26 @@
+<#--
+ ### 根据 DSL 方法名生成用于存储返回值的 Java 变量名。
+ ### <p>
+ ### 该函数用于推断由方法调用产生的局部变量名称。它采用一种“去前缀”的策略，
+ ### 旨在生成简洁的变量名，避免变量名过长。
+ ###
+ ### 转换规则 (Transformation Rules):
+ ### 1. 对象剥离: 如果包含点号 (e.g. "helper.method"), 仅保留方法名部分。
+ ### 2. 蛇形拆分: 将方法名按下划线 ('_') 拆分。
+ ### 3. 前缀丢弃: 忽略第一个片段 (通常是模块名或动作前缀)。
+ ### 4. 驼峰重组: 保留第二个片段作为开头(小写)，后续片段首字母大写。
+ ###
+ ### 示例 (Examples):
+ ### - "crypto_check"       -> "check"       (丢弃 crypto)
+ ### - "user_get_name"      -> "getName"     (丢弃 user)
+ ### - "helper.calc_amount" -> "amount"      (丢弃 helper 和 calc)
+ ###
+ ### @param method
+ ###        DSL 方法全名 (String)
+ ###
+ ### @return
+ ###        生成的 Java 变量名 (String)
+ -->
 <#function name_method_return method>
   <#local strs = method?split(".")>
   <#local meth = "">
