@@ -43,7 +43,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#----------------------->
 <#-- 用例直接引用到的服务对象 -->
 <#----------------------->
-<@usebase4java.print_services_for_usecase usecase=usecase indent=4 />
+<@usebase4java.print_services_for_usecase usecase=usecase indent=2 />
 
 <#if isArray == "true">
   public List<${java.nameType(usecase.name)}Result> ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException {
