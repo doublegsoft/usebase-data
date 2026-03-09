@@ -989,7 +989,7 @@ ${""?left_pad(indent)}}
      ### 赋值给新实例。
      -->  
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = new ${java.nameType(origObjName)}Query();  
-<@print_two_objects_copy sourceObj=sourceObj sourceVarName=sourceVarName targetObj=model.findObjectByName(origObjName) targetVarName=java.nameVariable(assign.assignee) indent=indent />
+<@print_object_object_copy sourceObj=sourceObj sourceVarName=sourceVarName targetObj=model.findObjectByName(origObjName) targetVarName=java.nameVariable(assign.assignee) indent=indent />
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query.setDefaultValues(${java.nameVariable(assign.assignee)}, true);
 ${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameType(origObjName)}(${java.nameVariable(assign.assignee)});  
   </#if>
@@ -1025,6 +1025,9 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameTy
   <#local arrayValDataObj = model.findObjectByName(arrayValObj.getLabelledOption("original","object"))>
   <#local sourceVar = usecase.getVariable(sourceVarName)>
   <#local varComponentType = sourceVar.type.componentType.name>
+<#-- TODO: 是否需要从可计算的属性中，衍生出其他集合属性 (保留原有的 TODO) -->
+${""?left_pad(indent)}// 处理数组对象赋值: 从 ${sourceVarName} 转换列表
+${""?left_pad(indent)}List<${java.nameType(arrayValDataObj.name)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();  
   <#if arrayValObj.getLabelledData("tabular_array")?? && 
        arrayValObj.getLabelledData("tabular_array").hasMoreArrays()>   
     <#local tabularArray = arrayValObj.getLabelledData("tabular_array")>
@@ -1043,13 +1046,14 @@ ${""?left_pad(indent)}      Map<String,Object> m = Datasets.beanToMap(u);
 ${""?left_pad(indent)}      if (o != null) m.putAll(Datasets.beanToMap(o));
 ${""?left_pad(indent)}      return m;
 ${""?left_pad(indent)}    });
-  </#if>
-  <#-- TODO: 是否需要从可计算的属性中，衍生出其他集合属性 (保留原有的 TODO) -->
-${""?left_pad(indent)}// 处理数组对象赋值: 从 ${sourceVarName} 转换列表
-${""?left_pad(indent)}List<${java.nameType(arrayValDataObj.name)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();
+${""?left_pad(indent)}for (Map<String,Object> row : ${java.nameVariable(sourceVarName)}JoinedResult) {
+${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query item = new ${java.nameType(arrayValDataObj.name)}Query();
+<@print_map_object_copy sourceObj=model.findObjectByName(varComponentType) sourceVarName="row" targetObj=arrayValDataObj targetVarName="item" indent=indent+2 />
+  <#else>
 ${""?left_pad(indent)}for (${java.nameType(varComponentType)}Query row : ${java.nameVariable(sourceVarName)}) {
 ${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query item = new ${java.nameType(arrayValDataObj.name)}Query();
-<@print_two_objects_copy sourceObj=model.findObjectByName(varComponentType) sourceVarName="row" targetObj=arrayValDataObj targetVarName="item" indent=indent+2 />
+<@print_object_object_copy sourceObj=model.findObjectByName(varComponentType) sourceVarName="row" targetObj=arrayValDataObj targetVarName="item" indent=indent+2 />
+  </#if>
   <#list arrayValObj.attributes as attr>
     <#local attrInDataObj = arrayValDataObj.getAttribute(attr.name)>
     <#-- 
@@ -1066,8 +1070,8 @@ ${""?left_pad(indent)}  item.set${java.nameType(modelbase.get_attribute_sql_name
 ${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query.setDefaultValues(item, true);  
 ${""?left_pad(indent)}  ${java.nameVariable(arrayValDataObj.name)}Service.save${java.nameType(arrayValDataObj.name)}(item);    
 ${""?left_pad(indent)}  ${java.nameVariable(assign.assignee)}.add(item);
-${""?left_pad(indent)}}
-  <#-- [Step 4] 唯一性/引用查找元数据准备 (逻辑似乎未完结) -->
+${""?left_pad(indent)}}  
+  <#-- 唯一性/引用查找元数据准备 (逻辑似乎未完结) -->
   <#local arrVal = assign.value.arrayValue>
   <#local uniqueObjName = arrVal.getLabelledOption("unique", "object")!"">
   <#if uniqueObjName == "">
@@ -1077,6 +1081,27 @@ ${""?left_pad(indent)}}
   <#-- 此处宏结束，后续可能利用 uniqueObjName 和 uniqueAttrNames 生成查找逻辑 -->
 </#macro>
 
+<#--
+ ### 根据 DSL 解析出的值类型，生成目标对象的属性赋值代码（Setter）。
+ ### <p>
+ ### 该宏主要用于处理语句中的具体“值（Value）”，并将其安全地赋给目标 Java 对象。
+ ### 支持的值类型包括：字面量（String, Number, Boolean）、上下文变量引用，以及最复杂的计算表达式（calcExpr）。
+ ###
+ ### 特别说明 (calcExpr):
+ ### 当值是一个公式时（如：amount = usage * rate），该宏会负责解析公式中的操作数（operands）。
+ ### 如果操作数关联了外部实体（如需要查数据库获取 rate），宏会自动生成构建 Query 并调用 Service 查找该实体的代码。
+ ###
+ ### @param loopVar
+ ###        当前上下文的源变量名（如果是循环内部，通常是 "row" 或 "item"）
+ ### @param objVar
+ ###        被赋值的目标对象变量名
+ ### @param attrInDataObj
+ ###        目标对象中的属性定义对象
+ ### @param value
+ ###        DSL 语法树解析出的值对象 (AST Node)
+ ### @param indent
+ ###        代码缩进级别
+ -->
 <#macro print_attribute_set_for_value loopVar objVar attrInDataObj value indent>
   <#if value.string??>
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}("${value.string}");
@@ -1085,7 +1110,15 @@ ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_n
   <#elseif value.boolean??>
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${value.boolean});
   <#elseif value.variable??>
-${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${loopVar}.get${java.nameType(value.variable)}());
+    <#local strs = value.variable?split(".")>
+    <#local varObj = usecase.getVariable(strs[0])>
+    <#local compObj = varObj.componentType>
+    <#local valueAttrInCompObj = compObj.getAttribute(strs[1])>
+      <#if compObj.name == attrInDataObj.parent.name>
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${loopVar}.get${java.nameType(modelbase.get_attribute_sql_name(valueAttrInCompObj))}());
+      <#else>
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}((${modelbase4java.type_attribute_primitive(valueAttrInCompObj)})${loopVar}.get("${modelbase.get_attribute_sql_name(valueAttrInCompObj)}"));      
+      </#if>
   <#elseif value.calcExpr??>
     <#-- TODO: 表达式处理，核心中的核心 -->
 ${""?left_pad(indent)}// 处理计算表达式：${value.originalText}
@@ -1118,7 +1151,26 @@ ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_n
   </#if>
 </#macro>
 
-<#macro print_two_objects_copy sourceObj sourceVarName targetObj targetVarName indent>
+<#--
+ ### 生成对象到对象（Object-to-Object）的属性拷贝代码。
+ ### <p>
+ ### 该宏充当硬编码的 BeanMapper / Assembler。它遍历源对象和目标对象的属性，
+ ### 当发现两边拥有相同的属性名（基于 SQL Name）且类型兼容时，自动生成 `target.setX(source.getX())` 的代码。
+ ###
+ ### 优势: 相比于运行时的反射（如 Spring BeanUtils），这种生成期的硬编码拷贝具有最佳的执行性能。
+ ###
+ ### @param sourceObj
+ ###        源对象定义 (ObjectDefinition)
+ ### @param sourceVarName
+ ###        源对象的 Java 变量名
+ ### @param targetObj
+ ###        目标对象定义 (ObjectDefinition)
+ ### @param targetVarName
+ ###        目标对象的 Java 变量名
+ ### @param indent
+ ###        代码缩进级别
+ -->
+<#macro print_object_object_copy sourceObj sourceVarName targetObj targetVarName indent>
   <#list sourceObj.attributes as sourceAttr>
     <#if modelbase.is_attribute_system(sourceAttr)><#continue></#if>
     <#local sourceAttrSqlName = modelbase.get_attribute_sql_name(sourceAttr)>
@@ -1132,6 +1184,47 @@ ${""?left_pad(indent)}${java.nameVariable(targetVarName)}.set${java.nameType(mod
       <#elseif targetAttr.type.custom>
         <#if sourceAttrSqlName == targetAttrSqlName>
 ${""?left_pad(indent)}${java.nameVariable(targetVarName)}.set${java.nameType(modelbase.get_attribute_sql_name(targetAttr))}(${java.nameVariable(sourceVarName)}.get${java.nameType(modelbase.get_attribute_sql_name(sourceAttr))}());      
+          <#break>  
+        </#if>
+      </#if>
+    </#list>
+  </#list>
+</#macro>
+
+<#--
+ ### 生成 Map 到对象（Map-to-Object）的属性装配代码。
+ ### <p>
+ ### 该宏通常用于数据访问层（DAO）或原生 SQL 结果集的处理。它将一个 `Map<String, Object>` 
+ ### 中的键值对安全地取出、强制类型转换，并 set 到目标的 Java 对象中。
+ ###
+ ### 核心逻辑:
+ ### `target.setField( (FieldType) map.get("field_name") );`
+ ###
+ ### @param sourceObj
+ ###        用于提供属性参照的源对象定义
+ ### @param sourceVarName
+ ###        源 Map 对象的 Java 变量名 (如 'row')
+ ### @param targetObj
+ ###        目标对象定义 (ObjectDefinition)
+ ### @param targetVarName
+ ###        目标对象的 Java 变量名
+ ### @param indent
+ ###        代码缩进级别
+ -->
+<#macro print_map_object_copy sourceObj sourceVarName targetObj targetVarName indent>
+  <#list sourceObj.attributes as sourceAttr>
+    <#if modelbase.is_attribute_system(sourceAttr)><#continue></#if>
+    <#local sourceAttrSqlName = modelbase.get_attribute_sql_name(sourceAttr)>
+    <#list targetObj.attributes as targetAttr>
+      <#local targetAttrSqlName = modelbase.get_attribute_sql_name(targetAttr)>
+      <#if targetAttr.type.primitive>
+        <#if sourceAttrSqlName == targetAttrSqlName && sourceAttr.type.name == targetAttr.type.name>
+${""?left_pad(indent)}${java.nameVariable(targetVarName)}.set${java.nameType(modelbase.get_attribute_sql_name(targetAttr))}((${modelbase4java.type_attribute_primitive(targetAttr)})${java.nameVariable(sourceVarName)}.get("${java.nameType(modelbase.get_attribute_sql_name(sourceAttr))}"));      
+          <#break>  
+        </#if>
+      <#elseif targetAttr.type.custom>
+        <#if sourceAttrSqlName == targetAttrSqlName>
+${""?left_pad(indent)}${java.nameVariable(targetVarName)}.set${java.nameType(modelbase.get_attribute_sql_name(targetAttr))}((${modelbase4java.type_attribute_primitive(targetAttr)})${java.nameVariable(sourceVarName)}.get("${java.nameType(modelbase.get_attribute_sql_name(sourceAttr))}"));      
           <#break>  
         </#if>
       </#if>
