@@ -95,7 +95,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
       <#if attr.type.collection>
     List<${java.nameType(attr.type.componentType.name)}Info> ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
       <#else>
-    ${modelbase4java.type_attribute(attr)} ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
+    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
       </#if>
     </#if>
   </#if>  
@@ -107,7 +107,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#---------------->
 <#list paramObj.attributes as attr>
   <#if !attr.constraint.nullable>
-    if (Strings.isBlank(${java.nameVariable(attr.name)})) {
+    if (Strings.isBlank(${java.nameVariable(usebase4java.name_attribute(attr))})) {
       throw new ServiceException(404, "${modelbase.get_attribute_label(attr)}是必要参数，不能为空值");
     }
   </#if>

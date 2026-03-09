@@ -114,14 +114,17 @@
 </#function>
 
 <#function name_attribute attr>
-  <#assign origObjName = attr.getLabelledOption("original", "object")!"">
+  <#local origObjName = attr.getLabelledOption("original", "object")!"">
   <#if origObjName == "">
     <#return attr.name>
   </#if>
-  <#assign origAttrName = attr.getLabelledOption("original", "attribute")>
+  <#local origAttrName = attr.getLabelledOption("original", "attribute")>
   <#if origAttrName == "id" || origAttrName == "name" || origAttrName == "code" || origAttrName == "type">
     <#return origObjName + "_" + origAttrName>
-  </#if>  
+  </#if>
+  <#if attr.type.custom && attr.name == attr.type.name>
+    <#return attr.name + "_id">
+  </#if>
   <#return origAttrName>
 </#function>  
 
@@ -496,7 +499,7 @@ ${""?left_pad(indent)}${varName}Query = new ${typeName}Query();
       <#if attr.isLabelled("original") && (attr.getLabelledOption("original", "object")!"") == masterObjName>
         <#local targetAttrName = attr.getLabelledOption("original", "attribute")>
         <#local targetAttr = model.findAttributeByNames(masterObjName, targetAttrName)>
-${""?left_pad(indent)}${varName}Query.${modelbase4java.name_setter(targetAttr)}(params.get${java.nameType(attr.name)}());
+${""?left_pad(indent)}${varName}Query.${modelbase4java.name_setter(targetAttr)}(params.get${java.nameType(name_attribute(attr))}());
       </#if>
     </#list>
 ${""?left_pad(indent)}${varName} = ${varName}Service.save${typeName}(${varName}Query);
@@ -1022,6 +1025,25 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameTy
   <#local arrayValDataObj = model.findObjectByName(arrayValObj.getLabelledOption("original","object"))>
   <#local sourceVar = usecase.getVariable(sourceVarName)>
   <#local varComponentType = sourceVar.type.componentType.name>
+  <#if arrayValObj.getLabelledData("tabular_array")?? && 
+       arrayValObj.getLabelledData("tabular_array").hasMoreArrays()>   
+    <#local tabularArray = arrayValObj.getLabelledData("tabular_array")>
+    <#local leftObj = tabularArray.mainObject>
+    <#local leftVar = tabularArray.mainVariable>
+    <#local leftAttr = tabularArray.compoundConditions[0].joinConditions[0].leftAttribute>
+    <#local rightObj = tabularArray.compoundConditions[0].joinConditions[0].rightObject>
+    <#local rightVar = tabularArray.compoundConditions[0].joinConditions[0].rightVariable>
+    <#local rightAttr = tabularArray.compoundConditions[0].joinConditions[0].rightAttribute>
+${""?left_pad(indent)}List<Map<String,Object>> ${tabularArray.mainVariable}JoinedResult = Datasets.leftJoin(
+${""?left_pad(indent)}    ${java.nameVariable(leftVar)}, ${java.nameVariable(rightVar)}, 
+${""?left_pad(indent)}    ${java.nameType(leftObj.name)}Query::${modelbase4java.name_getter(leftAttr)},
+${""?left_pad(indent)}    ${java.nameType(rightObj.name)}Query::${modelbase4java.name_getter(rightAttr)},
+${""?left_pad(indent)}    (u,o) -> {
+${""?left_pad(indent)}      Map<String,Object> m = Datasets.beanToMap(u);
+${""?left_pad(indent)}      if (o != null) m.putAll(Datasets.beanToMap(o));
+${""?left_pad(indent)}      return m;
+${""?left_pad(indent)}    });
+  </#if>
   <#-- TODO: 是否需要从可计算的属性中，衍生出其他集合属性 (保留原有的 TODO) -->
 ${""?left_pad(indent)}// 处理数组对象赋值: 从 ${sourceVarName} 转换列表
 ${""?left_pad(indent)}List<${java.nameType(arrayValDataObj.name)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();
