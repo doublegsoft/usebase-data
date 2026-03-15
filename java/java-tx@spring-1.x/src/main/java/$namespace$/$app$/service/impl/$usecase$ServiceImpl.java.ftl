@@ -81,6 +81,9 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#list explicitIdAttrs?values as idAttr>
     ${modelbase4java.type_attribute_primitive(idAttr)} ${modelbase.get_attribute_sql_name(idAttr)} = null;
 </#list>
+<#list usecase.parameterizedObject.attributes as attr>
+    ${modelbase4java.type_attribute_primitive(attr)} ${modelbase.get_attribute_sql_name(attr)} = null;  
+</#list>
 <#--------------------------------->
 <#-- 声明所有参数对象的属性，并且赋值 -->
 <#--------------------------------->
@@ -90,12 +93,12 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
   <#else>
     <#if attr.constraint.defaultValue??>
-    ${modelbase4java.type_attribute(attr)} ${java.nameVariable(attr.name)} = "${attr.constraint.defaultValue}";
+    ${java.nameVariable(attr.name)} = "${attr.constraint.defaultValue}";
     <#else>
       <#if attr.type.collection>
     List<${java.nameType(attr.type.componentType.name)}Info> ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
       <#else>
-    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
+    ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
       </#if>
     </#if>
   </#if>  

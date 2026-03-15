@@ -589,29 +589,14 @@ ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname
 <@print_statement_return usecase=usecase stmt=stmt indent=indent />
   <#elseif stmt.operator?ends_with("*|")>
 <@print_statement_loop usecase=usecase stmt=stmt indent=indent />
-  <#elseif stmt.operator?ends_with("?|")>
-<@print_statement_if usecase=usecase stmt=stmt indent=indent />   
   </#if>
-</#macro>
-
-<#macro print_statement_comparison usecase stmt indent>
-  <#if stmt.invocation??>
-    <#local invoc = stmt.invocation>
-${""?left_pad(indent)}try {
-${""?left_pad(indent)}  ValidationResult res = ${invoc.method}(<#list invoc.arguments as arg><#if arg?index != 0>, </#if>${java.nameVariable(arg)}</#list>);
-${""?left_pad(indent)}  if (!res.isSuccessful()) {
-${""?left_pad(indent)}    throw new ServiceException(400, "${invoc.error!"校验错误"}："<#list invoc.arguments as arg><#if arg?index != 0> + ", " </#if> + ${java.nameVariable(arg)}</#list>);
-${""?left_pad(indent)}  }
-${""?left_pad(indent)}} catch (RemoteException ex) {
-${""?left_pad(indent)}  throw new ServiceException(403, "远程调用失败", ex);
-${""?left_pad(indent)}}
-  </#if> 
 </#macro>
 
 <#macro print_statement_save usecase stmt indent>
   <#local save = stmt>
   <#if save.saveObject??>
     <#local saveObjName = save.saveObject.name?replace("#", "")>
+    <#local saveObjIdAttr = modelbase.get_id_attributes(model.findObjectByName(saveObjName))[0]>
     <#if save.array == true>
       <#local saveObjName = saveObjName?replace("[]", "")>
       <#---------------------------------------------------->
@@ -640,14 +625,19 @@ ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameTy
       </#if>  
     <#else>
 ${""?left_pad(indent)}${java.nameVariable(save.variable)} = new ${java.nameType(saveObjName)}Query();
-  <#list save.saveObject.attributes as attr>
-    <#if attr.value??>
-${""?left_pad(indent)}${java.nameVariable(save.variable)}.set${java.nameType(attr.name)}(${usebase4java.get_attribute_default_value(attr)});    
-    <#elseif !attr.type.collection>
+      <#list save.saveObject.attributes as attr>
+        <#if attr.value??>
+${""?left_pad(indent)}${java.nameVariable(save.variable)}.${modelbase4java.name_setter(attr)}(${usebase4java.get_attribute_default_value(usecase, attr)});    
+        <#elseif attr.type.custom && !attr.identifiable>
+${""?left_pad(indent)}${java.nameVariable(save.variable)}.${modelbase4java.name_setter(attr)}(${modelbase.get_attribute_sql_name(attr)});    
+        <#else>
 ${""?left_pad(indent)}${java.nameVariable(save.variable)}.set${java.nameType(attr.name)}(${java.nameVariable(attr.name)});
-    </#if>
-  </#list>
+        </#if>
+      </#list>
 ${""?left_pad(indent)}${java.nameVariable(saveObjName)}Service.save${java.nameType(saveObjName)}(${java.nameVariable(save.variable)});
+      <#if usecase.getVariable(saveObjName + "_" + saveObjIdAttr.name)?? || usecase.getVariable(saveObjIdAttr.name)??>
+${""?left_pad(indent)}${modelbase.get_attribute_sql_name(saveObjIdAttr)} = ${java.nameVariable(save.variable)}.${modelbase4java.name_getter(saveObjIdAttr)}();
+      </#if>
     </#if>
   </#if>
 </#macro>
@@ -668,7 +658,7 @@ ${""?left_pad(indent)}  throw new ServiceException(404, "${modelbase.get_object_
 ${""?left_pad(indent)}}
     <#list update.saveObject.attributes as attr>
       <#if attr.value??>
-${""?left_pad(indent)}${java.nameVariable(updateObjName)}.set${java.nameType(attr.name)}(${usebase4java.get_attribute_default_value(attr)});
+${""?left_pad(indent)}${java.nameVariable(update.variable)}.${modelbase4java.name_setter(attr)}(${usebase4java.get_attribute_default_value(usecase, attr)});    
       </#if>
     </#list>
 ${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.update${java.nameType(updateObjName)}(${java.nameVariable(updateObjName)});
@@ -750,7 +740,32 @@ ${""?left_pad(indent)}  throw new ServiceException(400, "${invo.error}");
 ${""?left_pad(indent)}}      
       </#if>
     </#if>
+  <#elseif cmp.value??>
+    <#if cmp.andComparisons?size == 0>
+${""?left_pad(indent)}if (<@print_single_comparison cmp=cmp indent=0 />) {
+    <#else>
+${""?left_pad(indent)}if (<@print_single_comparison cmp=cmp indent=0 />
+    <#list cmp.andComparisons as andCmp>
+<@print_single_comparison cmp=andCmp indent=indent+4 conj="&& " /><#if andCmp?index == cmp.andComparisons?size - 1>) {</#if>
+    </#list> 
+    </#if>
+    <#list stmt.statements as innerStmt>
+<@print_statement usecase=usecase stmt=innerStmt indent=indent+2 />
+    </#list>
+${""?left_pad(indent)}}
   </#if>
+</#macro>
+
+<#macro print_single_comparison cmp indent conj="">
+  <#compress>
+    <#if cmp.value.keyword?? && cmp.value.keyword == "null">
+${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)} ${cmp.comparator} null
+    <#elseif cmp.value.keyword?? && cmp.value.keyword == "now">
+${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)}.equals(new java.sql.Timestamp(System.currentTimeMillis())) 
+    <#elseif cmp.value.variable?? >
+${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)}.equals(${java.nameVariable(cmp.value.variable)})
+    </#if>
+  </#compress>
 </#macro>
 
 <#--
@@ -861,6 +876,7 @@ ${""?left_pad(indent)}}
     <#local origObjName = value.objectValue.getLabelledOption("original","object")>
     <#local message = value.objectValue.getLabelledOption("required", "message")!"">
     <#local origObj = model.findObjectByName(origObjName)>
+    <#local origObjIdAttr = modelbase.get_id_attributes(origObj)?first>
 ${""?left_pad(indent)}// 查找【${modelbase.get_object_label(origObj)}】对象数据
 ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query = new ${java.nameType(origObjName)}Query();
 ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1); 
@@ -869,6 +885,9 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);
 ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(inflector.pluralize(origObjName))} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);  
 ${""?left_pad(indent)}if (!page${java.nameType(inflector.pluralize(origObjName))}.getData().isEmpty()) {
 ${""?left_pad(indent)}  ${java.nameVariable(assign.assignee)} = page${java.nameType(inflector.pluralize(origObjName))}.getData().get(0);
+    <#if usecase.getVariable(origObjName + "_" + origObjIdAttr.name)?? || usecase.getVariable(origObjIdAttr.name)??>
+${""?left_pad(indent)}  ${modelbase.get_attribute_sql_name(origObjIdAttr)} = ${java.nameVariable(assign.assignee)}.${modelbase4java.name_getter(origObjIdAttr)}();
+    </#if>
     <#if message != "">
 ${""?left_pad(indent)}} else {
 ${""?left_pad(indent)}  throw new ServiceException(404, "${message}");
@@ -910,7 +929,7 @@ ${""?left_pad(indent)}// hello, this is if-statement
  ### @return
  ###        the formatted literal string (e.g., "null", "\"hello\"", "123", "true")
  -->
-<#function get_attribute_default_value attrWithValue>
+<#function get_attribute_default_value usecase attrWithValue>
   <#if !attrWithValue.value??>
     <#return "null">
   </#if>
@@ -921,6 +940,11 @@ ${""?left_pad(indent)}// hello, this is if-statement
     <#return value.number>
   <#elseif value.boolean??>
     <#return value.boolean>
+  <#elseif value.keyword?? && value.keyword == "now">
+    <#return "new java.sql.Timestamp(System.currentTimeMillis())">  
+  <#elseif value.variable??>
+    <#local varObj = usecase.getVariable(value.variable)>
+    <#return java.nameVariable(value.variable)>  
   </#if>  
   <#return "null">
 </#function>
@@ -960,17 +984,19 @@ ${""?left_pad(indent)}// hello, this is if-statement
      ### 这种情况通常意味着元数据配置不完整，或者这不是一个查找赋值操作。
      ### 直接返回，不生成任何代码。
      -->
-${""?left_pad(indent)}// FIXME: 有错误
+    <#local uniqueLabels = usebase.get_object_unique_labels(objVal)> 
     <#local uniqueAttrNames = objVal.getLabelledOptionAsList("unique", "attribute")>
 ${""?left_pad(indent)}// 准备查询条件: 根据唯一键查找 ${uniqueObjName}
 ${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query unique${java.nameType(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
-    <#list uniqueAttrNames as attrname>
-      <#if !model.findAttributeByNames(uniqueObjName, attrname)??><#continue></#if>
-      <#local uniqueAttr = model.findAttributeByNames(uniqueObjName, attrname)>
+    <#list uniqueLabels as label>
+      <#if !model.findAttributeByNames(uniqueObjName, label.attrname)??><#continue></#if>
+      <#local uniqueAttr = model.findAttributeByNames(uniqueObjName, label.attrname)>
       <#if uniqueAttr.alias??>
-${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(uniqueAttr.alias)}(${java.nameVariable(attrname)});
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(uniqueAttr.alias)}(${java.nameVariable(label.attrname)});
+      <#elseif label.value == "now">
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(new java.sql.Timestamp(System.currentTimeMillis()));      
       <#else>
-${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(attrname)}(${java.nameVariable(attrname)});        
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${modelbase.get_attribute_sql_name(uniqueAttr)});        
       </#if>
     </#list>
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
@@ -1112,12 +1138,21 @@ ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_n
   <#elseif value.variable??>
     <#local strs = value.variable?split(".")>
     <#local varObj = usecase.getVariable(strs[0])>
-    <#local compObj = varObj.componentType>
+    <#if varObj.componentType??>
+      <#local compObj = varObj.componentType>
+    <#else>
+      <#local compObj = varObj.type>
+    </#if>  
     <#local valueAttrInCompObj = compObj.getAttribute(strs[1])>
-      <#if compObj.name == attrInDataObj.parent.name>
+      <#if varObj.componentType?? && compObj.name == attrInDataObj.parent.name>
+      <#-- 集合对象中的属性，并且是首个对象中的属性 -->
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${loopVar}.get${java.nameType(modelbase.get_attribute_sql_name(valueAttrInCompObj))}());
+      <#elseif varObj.componentType??>
+      <#-- 集合对象中的属性，不是首个对象中的属性 -->
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}((${modelbase4java.type_attribute_primitive(valueAttrInCompObj)})${loopVar}.get("${modelbase.get_attribute_sql_name(valueAttrInCompObj)}")); 
       <#else>
-${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}((${modelbase4java.type_attribute_primitive(valueAttrInCompObj)})${loopVar}.get("${modelbase.get_attribute_sql_name(valueAttrInCompObj)}"));      
+      <#-- 非集合对象中的属性 -->
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${java.nameVariable(strs[0])}.${modelbase4java.name_getter(valueAttrInCompObj)}());              
       </#if>
   <#elseif value.calcExpr??>
     <#-- TODO: 表达式处理，核心中的核心 -->
