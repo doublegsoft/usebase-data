@@ -19,6 +19,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
+import java.math.BigDecimal;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Named;  
@@ -78,10 +79,15 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#------------------------------------------->
 <#-- 潜在对象的所有标识字段，列举出来，不需要赋值 -->
 <#------------------------------------------->
+<#assign printedAttrs = {}>
 <#list explicitIdAttrs?values as idAttr>
+  <#if printedAttrs[modelbase.get_attribute_sql_name(idAttr)]??><#continue></#if>
+  <#assign printedAttrs += {modelbase.get_attribute_sql_name(idAttr): idAttr.name}>
     ${modelbase4java.type_attribute_primitive(idAttr)} ${modelbase.get_attribute_sql_name(idAttr)} = null;
 </#list>
 <#list usecase.parameterizedObject.attributes as attr>
+  <#if printedAttrs[modelbase.get_attribute_sql_name(attr)]??><#continue></#if>
+  <#assign printedAttrs += {modelbase.get_attribute_sql_name(attr): attr.name}>
     ${modelbase4java.type_attribute_primitive(attr)} ${modelbase.get_attribute_sql_name(attr)} = null;  
 </#list>
 <#--------------------------------->

@@ -749,6 +749,9 @@ ${""?left_pad(indent)}if (<@print_single_comparison cmp=cmp indent=0 />
 <@print_single_comparison cmp=andCmp indent=indent+4 conj="&& " /><#if andCmp?index == cmp.andComparisons?size - 1>) {</#if>
     </#list> 
     </#if>
+    <#if cmp.statements?size == 0 && cmp.error??>
+${""?left_pad(indent)}  throw new ServiceException(400, "${cmp.error}");    
+    </#if>
     <#list stmt.statements as innerStmt>
 <@print_statement usecase=usecase stmt=innerStmt indent=indent+2 />
     </#list>
@@ -763,7 +766,19 @@ ${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)} ${cmp.comparato
     <#elseif cmp.value.keyword?? && cmp.value.keyword == "now">
 ${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)}.equals(new java.sql.Timestamp(System.currentTimeMillis())) 
     <#elseif cmp.value.variable?? >
-${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)}.equals(${java.nameVariable(cmp.value.variable)})
+      <#local comStrs = cmp.comparand?split(".")>
+      <#local varStrs = cmp.value.variable?split(".")>
+      <#if varStrs?size == 1>
+        <#local varExpr = java.nameVariable(varStrs[0])>
+      <#else>
+        <#local varExpr = java.nameVariable(varStrs[0]) + ".get" + java.nameType(varStrs[1]) + "()">
+      </#if>
+      <#if comStrs?size == 1>
+        <#local comExpr = java.nameVariable(comStrs[0])>
+      <#else>
+        <#local comExpr = java.nameVariable(comStrs[0]) + ".get" + java.nameType(comStrs[1]) + "()">
+      </#if>
+${""?left_pad(indent)}${comExpr}.equals(${varExpr})          
     </#if>
   </#compress>
 </#macro>
@@ -943,7 +958,7 @@ ${""?left_pad(indent)}// hello, this is if-statement
   <#elseif value.keyword?? && value.keyword == "now">
     <#return "new java.sql.Timestamp(System.currentTimeMillis())">  
   <#elseif value.variable??>
-    <#local varObj = usecase.getVariable(value.variable)>
+    <#--  <#local varObj = usecase.getVariable(value.variable)>  -->
     <#return java.nameVariable(value.variable)>  
   </#if>  
   <#return "null">
@@ -987,7 +1002,7 @@ ${""?left_pad(indent)}// hello, this is if-statement
     <#local uniqueLabels = usebase.get_object_unique_labels(objVal)> 
     <#local uniqueAttrNames = objVal.getLabelledOptionAsList("unique", "attribute")>
 ${""?left_pad(indent)}// 准备查询条件: 根据唯一键查找 ${uniqueObjName}
-${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query unique${java.nameType(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query = new ${java.nameType(uniqueObjName)}Query();
     <#list uniqueLabels as label>
       <#if !model.findAttributeByNames(uniqueObjName, label.attrname)??><#continue></#if>
       <#local uniqueAttr = model.findAttributeByNames(uniqueObjName, label.attrname)>
@@ -995,6 +1010,8 @@ ${""?left_pad(indent)}${java.nameType(uniqueObjName)}Query unique${java.nameType
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameType(uniqueAttr.alias)}(${java.nameVariable(label.attrname)});
       <#elseif label.value == "now">
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(new java.sql.Timestamp(System.currentTimeMillis()));      
+      <#elseif label.value == "true" || label.value == "false">
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${label.value});      
       <#else>
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${modelbase.get_attribute_sql_name(uniqueAttr)});        
       </#if>
@@ -1421,6 +1438,7 @@ ${""?left_pad(indent)}private ${java.nameType(obj.name)}Service ${java.nameVaria
     <#local printedObjs += {dataObj.name:dataObj.name}>
 ${""?left_pad(indent)}${java.nameType(dataObj.name)}Query ${java.nameVariable(dataObj.name)}Query = null;
 ${""?left_pad(indent)}${java.nameType(dataObj.name)}Query ${java.nameVariable(dataObj.name)} = null;
+${""?left_pad(indent)}${java.nameType(dataObj.name)}Query unique${java.nameType(dataObj.name)}Query = null;
   </#list>
   <#local aggregateChain = aggregateBuilder.build(usecase.returnedObject)>
   <#local objRelsList = aggregateChain.build()>
@@ -1429,6 +1447,7 @@ ${""?left_pad(indent)}${java.nameType(dataObj.name)}Query ${java.nameVariable(da
     <#local printedObjs += {obj.name:obj.name}>
 ${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)}Query = null;
 ${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)} = null;
+${""?left_pad(indent)}${java.nameType(obj.name)}Query unique${java.nameType(obj.name)}Query = null;
   </#list>
   <#---------------------------------->
   <#-- 参数和返回值关联对象需要的服务对象 -->
@@ -1442,6 +1461,7 @@ ${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.na
       <#local printedObjs += {obj.name:obj.name}>
 ${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)}Query = null;
 ${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.name)} = null;
+${""?left_pad(indent)}${java.nameType(obj.name)}Query unique${java.nameType(obj.name)}Query = null;
     </#list>
   </#if>
   <#list usecase.statements as stmt>
