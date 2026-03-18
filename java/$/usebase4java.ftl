@@ -771,7 +771,7 @@ ${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)}.equals(new java
       <#if varStrs?size == 1>
         <#local varExpr = java.nameVariable(varStrs[0])>
       <#else>
-        <#local varExpr = java.nameVariable(varStrs[0]) + ".get" + java.nameType(varStrs[1]) + "()">
+        <#local varExpr = jdava.nameVariable(varStrs[0]) + ".get" + java.nameType(varStrs[1]) + "()">
       </#if>
       <#if comStrs?size == 1>
         <#local comExpr = java.nameVariable(comStrs[0])>
