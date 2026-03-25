@@ -28,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.payload.*;
-import <#if namespace??>${namespace}.</#if>${app.name}.dto.info.*;
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.msg.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.service.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.util.*;

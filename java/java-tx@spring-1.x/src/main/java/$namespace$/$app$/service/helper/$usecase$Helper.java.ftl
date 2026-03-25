@@ -8,7 +8,6 @@ ${java.license(license)}
 package ${namespace}.${java.nameType(app.name)?lower_case}.service.helper;
 
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.payload.*;
-import <#if namespace??>${namespace}.</#if>${app.name}.dto.info.*;
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.msg.*;
 
 public class ${java.nameType(usecase.name)}Helper {

@@ -13,7 +13,6 @@ import java.util.List;
 <#list modelbase4java.get_imports(obj)?sort as imp>
 import ${imp};
 </#list>
-import ${namespace}.${app.name}.dto.info.*;
 import ${namespace}.${app.name}.dto.payload.*;
 
 /*!

@@ -3,9 +3,9 @@
 <#if license??>
 ${java.license(license)}
 </#if>
-<#assign obj = info>
+<#assign obj = row>
 <#assign idAttrs = modelbase.get_id_attributes(obj)>
-package ${namespace}.${app.name}.dto.info;
+package ${namespace}.${app.name}.dto.msg;
 
 import java.io.Serializable;
 import java.util.ArrayList;

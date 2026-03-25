@@ -12,7 +12,6 @@ import java.util.ArrayList;
 <#list modelbase4java.get_imports(obj)?sort as imp>
 import ${imp};
 </#list>
-import ${namespace}.${app.name}.dto.info.*;
 
 /*!
 ** 【${modelbase.get_object_label(obj)}】
