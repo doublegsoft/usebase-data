@@ -128,6 +128,32 @@
   <#return origAttrName>
 </#function>  
 
+<#function name_value_access usecase expr>
+  <#local strs = expr?split(".")>
+  <#if strs?size == 1>
+    <#return java.nameVariable(strs[0])>
+  <#else>
+    <#local var = usecase.getVariable(strs[0])>
+    <#local varObj = var.type>
+    <#local attrname = strs[1]>
+    <#if varObj.getAttribute(strs[1])??>
+      <#local attrVar = varObj.getAttribute(strs[1])>
+    <#else>
+      <#local attrname = strs[1]?replace(varObj.name + "_", "")>  
+      <#local attrVar = varObj.getAttribute(strs[1])>
+    </#if>
+    <#return java.nameVariable(strs[0]) + ".get" + java.nameType(modelbase.get_attribute_sql_name(attrVar)) + "()">
+  </#if>
+</#function>
+
+<#function name_comprator_number op>
+  <#if op == "==">
+  <#elseif op == ">">
+  <#elseif op == ">=">
+  <#elseif opt == "<">
+  </#if>
+</#function>
+
 <#macro print_body usecase indent>
   <#if usecase.name?starts_with("find")>
 <@print_body_find usecase=usecase indent=indent />
@@ -593,6 +619,15 @@ ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname
 </#macro>
 
 <#macro print_statement_save usecase stmt indent>
+  <#if stmt.class.simpleName == "AssignmentDefinition">
+    <#local assign = stmt>
+    <#local origObjName = assign.value.objectValue.getLabelledOption("original", "object")>
+    <#local origObj = model.findObjectByName(origObjName)>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = new ${java.nameType(origObjName)}Query();
+    <#list assign.value.objectValue.attributes as attr>
+    </#list>
+    <#return>  
+  </#if>
   <#local save = stmt>
   <#if save.saveObject??>
     <#local saveObjName = save.saveObject.name?replace("#", "")>
@@ -605,7 +640,7 @@ ${""?left_pad(indent)}${java.nameType(objname)}Query ${java.nameVariable(objname
       <#---------------------------------------------------->
       <#if is_paramobj_attribute(usecase, save.variable)>
 ${""?left_pad(indent)}for (${java.nameType(saveObjName)}Query row : ${java.nameVariable(save.variable)}) {
-${""?left_pad(indent)}
+${""?left_pad(indent)}  // TODO
 ${""?left_pad(indent)}}
       <#else>
         <#local conjedAttr = get_conjuncted_attribute_from_paramobj(usecase, saveObjName)>
@@ -693,7 +728,11 @@ ${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.update${java.na
       <#local invo = assign.value.invocation>
 ${""?left_pad(indent)}${type_variable(usecase, assign.assignee)} ${java.nameVariable(assign.assignee)} = helper.${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);
     <#elseif assign.value.objectValue??>
+      <#if assign.operator?ends_with("+|")>
+${""?left_pad(indent)}// 保存后再赋值 
+      <#else>
 <@print_assignment_simple_for_object usecase=usecase assign=assign indent=indent />
+      </#if>
     <#elseif assign.value.arrayValue??>
 <@print_assignment_simple_for_array usecase=usecase assign=assign indent=indent />      
     <#else>
@@ -742,11 +781,11 @@ ${""?left_pad(indent)}}
     </#if>
   <#elseif cmp.value??>
     <#if cmp.andComparisons?size == 0>
-${""?left_pad(indent)}if (<@print_single_comparison cmp=cmp indent=0 />) {
+${""?left_pad(indent)}if (<@print_single_comparison cmp=cmp usecase=usecase indent=0 />) {
     <#else>
-${""?left_pad(indent)}if (<@print_single_comparison cmp=cmp indent=0 />
+${""?left_pad(indent)}if (<@print_single_comparison cmp=cmp usecase=usecase indent=0 />
     <#list cmp.andComparisons as andCmp>
-<@print_single_comparison cmp=andCmp indent=indent+4 conj="&& " /><#if andCmp?index == cmp.andComparisons?size - 1>) {</#if>
+<@print_single_comparison cmp=andCmp usecase=usecase indent=indent+4 conj="&& " /><#if andCmp?index == cmp.andComparisons?size - 1>) {</#if>
     </#list> 
     </#if>
     <#if cmp.statements?size == 0 && cmp.error??>
@@ -759,26 +798,32 @@ ${""?left_pad(indent)}}
   </#if>
 </#macro>
 
-<#macro print_single_comparison cmp indent conj="">
+<#macro print_single_comparison cmp usecase indent conj="">
   <#compress>
     <#if cmp.value.keyword?? && cmp.value.keyword == "null">
 ${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)} ${cmp.comparator} null
     <#elseif cmp.value.keyword?? && cmp.value.keyword == "now">
 ${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)}.equals(new java.sql.Timestamp(System.currentTimeMillis())) 
-    <#elseif cmp.value.variable?? >
-      <#local comStrs = cmp.comparand?split(".")>
-      <#local varStrs = cmp.value.variable?split(".")>
-      <#if varStrs?size == 1>
-        <#local varExpr = java.nameVariable(varStrs[0])>
-      <#else>
-        <#local varExpr = jdava.nameVariable(varStrs[0]) + ".get" + java.nameType(varStrs[1]) + "()">
+    <#elseif cmp.value.variable??>
+       <#if cmp.comparator == "==">
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)})     
+        <#elseif cmp.comparator == "!=">
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && !${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)})             
+        </#if>
+    <#elseif cmp.value.number??> 
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.compareTo(new BigDecimal("${cmp.value.number}")) ${cmp.comparator} 0      
+    <#elseif cmp.value.string??> 
+      <#if cmp.comparator == "==">
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.equals("${cmp.value.string}")      
+      <#elseif cmp.comparator == "!=">
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && !${name_value_access(usecase, cmp.comparand)}.equals("${cmp.value.string}")
       </#if>
-      <#if comStrs?size == 1>
-        <#local comExpr = java.nameVariable(comStrs[0])>
-      <#else>
-        <#local comExpr = java.nameVariable(comStrs[0]) + ".get" + java.nameType(comStrs[1]) + "()">
-      </#if>
-${""?left_pad(indent)}${comExpr}.equals(${varExpr})          
+    <#elseif cmp.value.bool??> 
+      <#if cmp.comparator == "==">
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} == ${cmp.value.bool}
+      <#elseif cmp.comparator == "!=">
+${""?left_pad(indent)}!${name_value_access(usecase, cmp.comparand)} != ${cmp.value.bool}
+      </#if>  
     </#if>
   </#compress>
 </#macro>
@@ -958,8 +1003,7 @@ ${""?left_pad(indent)}// hello, this is if-statement
   <#elseif value.keyword?? && value.keyword == "now">
     <#return "new java.sql.Timestamp(System.currentTimeMillis())">  
   <#elseif value.variable??>
-    <#--  <#local varObj = usecase.getVariable(value.variable)>  -->
-    <#return java.nameVariable(value.variable)>  
+    <#return name_value_access(usecase, value.variable)>  
   </#if>  
   <#return "null">
 </#function>
@@ -1012,15 +1056,17 @@ ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.set${java.nameT
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(new java.sql.Timestamp(System.currentTimeMillis()));      
       <#elseif label.value == "true" || label.value == "false">
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${label.value});      
-      <#else>
-${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${modelbase.get_attribute_sql_name(uniqueAttr)});        
+      <#elseif !label.type??>
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${java.nameVariable(label.value)});   
+      <#else>      
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${modelbase.get_attribute_sql_name(uniqueAttr)});
       </#if>
     </#list>
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
     <#if objVal.isLabelled("required")>    
 ${""?left_pad(indent)}// 校验对象是否存在
 ${""?left_pad(indent)}if (${java.nameVariable(assign.assignee)} == null) {
-${""?left_pad(indent)}  throw new ServiceException(400, "${objVal.getLabelledOption("required", "message")}");
+${""?left_pad(indent)}  throw new ServiceException(404, "${objVal.getLabelledOption("required", "message")}");
 ${""?left_pad(indent)}}
     </#if>   
   <#elseif sourceVarName != "">
@@ -1332,6 +1378,8 @@ ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter
       <#else>
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${label.value});       
       </#if>
+    <#elseif attrtype == attrname><#-- 说明只指定了一个变量，且对象属性和变量的名称相同 -->
+${""?left_pad(indent)}${java.nameVariable(varname)}.set${java.nameType(attrname)}(${java.nameVariable(attrname)});   
     <#elseif varObj != ""><#-- usecase中注册的变量作为值 -->
       <#if varObj.type.collection>
         <#local compObj = varObj.type.componentType>
@@ -1359,7 +1407,7 @@ ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter
         <#else>
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${java.nameVariable(strs[0])}.${modelbase4java.name_getter(objAttr)}());  
         </#if>       
-      </#if>     
+      </#if> 
     <#elseif objAttr != ""><#-- FIXME: 隐式引用的属性作为值（描述不准确） -->
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(objAttr)});    
     </#if>     
@@ -1464,7 +1512,7 @@ ${""?left_pad(indent)}${java.nameType(obj.name)}Query ${java.nameVariable(obj.na
 ${""?left_pad(indent)}${java.nameType(obj.name)}Query unique${java.nameType(obj.name)}Query = null;
     </#list>
   </#if>
-  <#list usecase.statements as stmt>
+  <#list usecase.allStatements as stmt>
     <#if stmt.assignee??>
       <#if printedObjs[stmt.assignee]??><#continue></#if>
       <#if stmt.value.objectValue??>
