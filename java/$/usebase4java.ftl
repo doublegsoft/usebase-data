@@ -208,6 +208,7 @@
   <#if associationChain.getAssociatingObjects()?size != 0>
     <#local lastObjInChain = associationChain.getAssociatingObjects()[objSize - 1]>
   </#if>
+  <#if (objSize > 1)>
   <#local prevObjInChain = firstObjInChain>
   <#list 1..(objSize-1) as index>
     <#local obj = associationChain.getAssociatingObjects()[index]>
@@ -236,6 +237,7 @@ ${""?left_pad(indent)}Pagination<${java.nameType(obj.name)}Query> paged${java.na
 ${""?left_pad(indent)}List<${java.nameType(obj.name)}Query> ${java.nameVariable(inflector.pluralize(obj.name))} = paged${java.nameType(inflector.pluralize(obj.name))}.getData();        
     <#local prevObjInChain = obj>
   </#list>
+  </#if>
   <#-------------------------->
   <#-- 结果对象的自关联查询语句 -->
   <#-------------------------->
@@ -1207,16 +1209,21 @@ ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_n
       <#local compObj = varObj.type>
     </#if>  
     <#local valueAttrInCompObj = compObj.getAttribute(strs[1])>
-      <#if varObj.componentType?? && compObj.name == attrInDataObj.parent.name>
-      <#-- 集合对象中的属性，并且是首个对象中的属性 -->
+    <#if varObj.componentType?? && compObj.name == attrInDataObj.parent.name>
+      <#-- 集合对象中的属性，并且是首个对象中的属性，【首对象属性】 -->
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${loopVar}.get${java.nameType(modelbase.get_attribute_sql_name(valueAttrInCompObj))}());
-      <#elseif varObj.componentType??>
-      <#-- 集合对象中的属性，不是首个对象中的属性 -->
-${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}((${modelbase4java.type_attribute_primitive(valueAttrInCompObj)})${loopVar}.get("${modelbase.get_attribute_sql_name(valueAttrInCompObj)}")); 
+    <#elseif varObj.componentType??>
+      <#-- 集合对象中的属性，不是首个对象中的属性                 -->
+      <#-- 这种情况是调用Datesets.join方法后再从map里面取对应值的 -->
+      <#if varObj.alias??>
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}((${modelbase4java.type_attribute_primitive(valueAttrInCompObj)})${loopVar}.get("${varObj.name}_${modelbase.get_attribute_sql_name(valueAttrInCompObj)}"));       
       <#else>
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}((${modelbase4java.type_attribute_primitive(valueAttrInCompObj)})${loopVar}.get("${modelbase.get_attribute_sql_name(valueAttrInCompObj)}")); 
+      </#if>
+    <#else>
       <#-- 非集合对象中的属性 -->
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${java.nameVariable(strs[0])}.${modelbase4java.name_getter(valueAttrInCompObj)}());              
-      </#if>
+    </#if>
   <#elseif value.calcExpr??>
     <#-- TODO: 表达式处理，核心中的核心 -->
 ${""?left_pad(indent)}// 处理计算表达式：${value.originalText}
