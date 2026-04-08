@@ -7,9 +7,12 @@ ${java.license(license)}
 </#if>
 package ${namespace}.${java.nameType(app.name)?lower_case}.service.helper;
 
+import jakarta.inject.Named;  
+
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.payload.*;
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.msg.*;
 
+@Named
 public class ${java.nameType(usecase.name)}Helper {
 <#list usecase.statements as stmt>
 

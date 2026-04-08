@@ -1116,7 +1116,9 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameTy
   <#local arrayValDataObj = model.findObjectByName(arrayValObj.getLabelledOption("original","object"))>
   <#local sourceVar = usecase.getVariable(sourceVarName)>
   <#local varComponentType = sourceVar.type.componentType.name>
-<#-- TODO: 是否需要从可计算的属性中，衍生出其他集合属性 (保留原有的 TODO) -->
+<#-- TODO:                                                 -->
+<#-- 是否需要从可计算的属性中，衍生出其他集合属性 (保留原有的 TODO) -->
+<#-- 条件判断的元变成极其复杂，需要仔细考虑                      -->
 ${""?left_pad(indent)}// 处理数组对象赋值: 从 ${sourceVarName} 转换列表
 ${""?left_pad(indent)}List<${java.nameType(arrayValDataObj.name)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();  
   <#if arrayValObj.getLabelledData("tabular_array")?? && 
@@ -1124,19 +1126,51 @@ ${""?left_pad(indent)}List<${java.nameType(arrayValDataObj.name)}Query> ${java.n
     <#local tabularArray = arrayValObj.getLabelledData("tabular_array")>
     <#local leftObj = tabularArray.mainObject>
     <#local leftVar = tabularArray.mainVariable>
-    <#local leftAttr = tabularArray.compoundConditions[0].joinConditions[0].leftAttribute>
-    <#local rightObj = tabularArray.compoundConditions[0].joinConditions[0].rightObject>
-    <#local rightVar = tabularArray.compoundConditions[0].joinConditions[0].rightVariable>
-    <#local rightAttr = tabularArray.compoundConditions[0].joinConditions[0].rightAttribute>
-${""?left_pad(indent)}List<Map<String,Object>> ${tabularArray.mainVariable}JoinedResult = Datasets.leftJoin(
-${""?left_pad(indent)}    ${java.nameVariable(leftVar)}, ${java.nameVariable(rightVar)}, 
+    <#local compoundConditionLength = tabularArray.compoundConditions?size>
+${""?left_pad(indent)}List<Map<String,Object>> ${tabularArray.mainVariable}JoinedResult = Datasets.join<#if (compoundConditionLength > 2)>${compoundConditionLength+1}</#if>(
+${""?left_pad(indent)}    ${java.nameVariable(leftVar)}, 
+    <#list tabularArray.compoundConditions as compoundCondition>
+      <#local rightObj = tabularArray.compoundConditions[compoundCondition?index].joinConditions[0].rightObject>
+      <#local rightVar = tabularArray.compoundConditions[compoundCondition?index].joinConditions[0].rightVariable>
+      <#local varObj = usecase.getVariable(rightVar)>
+      <#if varObj.alias??>
+${""?left_pad(indent)}    ${java.nameVariable(varObj.alias)},       
+      <#else>
+${""?left_pad(indent)}    ${java.nameVariable(varObj.name)}, 
+      </#if>
+    </#list>
+    <#list tabularArray.compoundConditions as compoundCondition>
+      <#local leftAttr = tabularArray.compoundConditions[compoundCondition?index].joinConditions[0].leftAttribute>
+      <#local rightObj = tabularArray.compoundConditions[compoundCondition?index].joinConditions[0].rightObject>
+      <#local rightAttr = tabularArray.compoundConditions[compoundCondition?index].joinConditions[0].rightAttribute>
 ${""?left_pad(indent)}    ${java.nameType(leftObj.name)}Query::${modelbase4java.name_getter(leftAttr)},
 ${""?left_pad(indent)}    ${java.nameType(rightObj.name)}Query::${modelbase4java.name_getter(rightAttr)},
+    </#list>
+    <#list tabularArray.compoundConditions as compoundCondition>
+      <#local rightVar = tabularArray.compoundConditions[compoundCondition?index].joinConditions[0].rightVariable>
+      <#local rightObj = tabularArray.compoundConditions[compoundCondition?index].joinConditions[0].rightObject>
+      <#local rightAttr = tabularArray.compoundConditions[compoundCondition?index].joinConditions[0].rightAttribute>
+      <#local varObj = usecase.getVariable(rightVar)>
 ${""?left_pad(indent)}    (u,o) -> {
-${""?left_pad(indent)}      Map<String,Object> m = Datasets.beanToMap(u);
-${""?left_pad(indent)}      if (o != null) m.putAll(Datasets.beanToMap(o));
+${""?left_pad(indent)}      Map<String,Object> m = Beans.beanToMap(u);
+${""?left_pad(indent)}      if (o != null) m.putAll(Beans.beanToMap(o));
+      <#if varObj.alias??>
+        <#list arrayValObj.attributes as attr>
+          <#if attr.value.variable?starts_with(varObj.name + ".")>
+            <#local attrnameOfVarObj = attr.value.variable?substring(varObj.name?length + 1)>
+            <#local attrOfVarObj = model.findAttributeByNames(varObj.type.componentType.name, attrnameOfVarObj)>
+${""?left_pad(indent)}      m.put("${varObj.name}_${modelbase.get_attribute_sql_name(attrOfVarObj)}", o.${modelbase4java.name_getter(attrOfVarObj)}());   
+            <#break>      
+          </#if>    
+        </#list>     
+      </#if>
 ${""?left_pad(indent)}      return m;
+      <#if (compoundCondition?index == compoundConditionLength - 1)>
 ${""?left_pad(indent)}    });
+      <#else>
+${""?left_pad(indent)}    },
+      </#if>
+    </#list>
 ${""?left_pad(indent)}for (Map<String,Object> row : ${java.nameVariable(sourceVarName)}JoinedResult) {
 ${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query item = new ${java.nameType(arrayValDataObj.name)}Query();
 <@print_map_object_copy sourceObj=model.findObjectByName(varComponentType) sourceVarName="row" targetObj=arrayValDataObj targetVarName="item" indent=indent+2 />

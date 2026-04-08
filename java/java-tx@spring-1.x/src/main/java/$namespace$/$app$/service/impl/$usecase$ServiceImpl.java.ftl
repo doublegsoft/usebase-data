@@ -21,7 +21,6 @@ import java.util.Set;
 import java.util.HashMap;
 import java.math.BigDecimal;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Named;  
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
@@ -33,7 +32,7 @@ import ${namespace}.${java.nameType(app.name)?lower_case}.service.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.util.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.service.helper.*;
 
-@ApplicationScoped
+@Named
 public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameType(usecase.name)}Service {
   
   private static final Logger TRACER = LoggerFactory.getLogger(${java.nameType(usecase.name)}ServiceImpl.class);
