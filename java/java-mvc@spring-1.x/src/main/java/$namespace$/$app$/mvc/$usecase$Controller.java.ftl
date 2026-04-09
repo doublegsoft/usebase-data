@@ -5,6 +5,10 @@
 <#if license??>
 ${java.license(license)}
 </#if>
+<#assign paramObj = usecase.getParameterizedObject()>
+<#if usecase.getReturnedObject()??>
+  <#assign retObj = usecase.getReturnedObject()>
+</#if>
 package <#if namespace??>${namespace}.</#if>${app.name?lower_case}.mvc;
 
 import java.util.List;
@@ -30,6 +34,7 @@ import org.springframework.http.MediaType;
 import <#if namespace??>${namespace}.</#if>${app.name}.poco.*;
 import <#if namespace??>${namespace}.</#if>${app.name}.orm.assembler.*;
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.payload.*;
+import <#if namespace??>${namespace}.</#if>${app.name}.dto.msg.*;
 import <#if namespace??>${namespace}.</#if>${app.name}.service.*;
 
 /**
@@ -39,8 +44,26 @@ import <#if namespace??>${namespace}.</#if>${app.name}.service.*;
 @RequestMapping("/${app.name}")
 public class ${java.nameType(usecase.name)}Controller extends BaseController {
 
+  private static final Logger TRACER = LoggerFactory.getLogger(${java.nameType(usecase.name)}Controller.class);
+
   @Inject
   private ${java.nameType(usecase.name)}Service ${java.nameVariable(usecase.name)}Service;
+
+  @PostMapping(value = "/${usecase.name}", produces = MediaType.APPLICATION_JSON_VALUE + ";charset=utf-8")
+  public RestResult ${java.nameVariable(usecase.name)}(@RequestBody ${java.nameType(paramObj.name?substring(1))}Params params) {
+    try {
+<#if retObj??>      
+      ${java.nameType(retObj.name?substring(1))}Result result = ${java.nameVariable(usecase.name)}Service.${java.nameVariable(usecase.name)}(params);
+      return new RestResult(result);
+<#else>
+      ${java.nameVariable(usecase.name)}Service.${java.nameVariable(usecase.name)}(params);
+      return new RestResult();
+</#if>      
+    } catch (Throwable cause) {
+      TRACER.error(cause.getMessage(), cause);
+      return error(cause);
+    }
+  }
 
 }  
 

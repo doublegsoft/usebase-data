@@ -1081,6 +1081,11 @@ ${""?left_pad(indent)}}
      -->  
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = new ${java.nameType(origObjName)}Query();  
 <@print_object_object_copy sourceObj=sourceObj sourceVarName=sourceVarName targetObj=model.findObjectByName(origObjName) targetVarName=java.nameVariable(assign.assignee) indent=indent />
+    <#list assign.value.objectValue.attributes as attr>
+      <#local attrInDataModel = modelbase.get_attribute_from_original(attr)>
+<@print_attribute_set_for_value loopVar="" objVar=assign.assignee attrInDataObj=attrInDataModel value=attr.value indent=indent />      
+<#--  ${""?left_pad(indent)}${java.nameVariable(assign.assignee)}.${modelbase4java.name_setter(attrInDataModel)}(null);       -->
+    </#list>
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query.setDefaultValues(${java.nameVariable(assign.assignee)}, true);
 ${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameType(origObjName)}(${java.nameVariable(assign.assignee)});  
   </#if>
@@ -1152,18 +1157,25 @@ ${""?left_pad(indent)}    ${java.nameType(rightObj.name)}Query::${modelbase4java
       <#local rightAttr = tabularArray.compoundConditions[compoundCondition?index].joinConditions[0].rightAttribute>
       <#local varObj = usecase.getVariable(rightVar)>
 ${""?left_pad(indent)}    (u,o) -> {
-${""?left_pad(indent)}      Map<String,Object> m = Beans.beanToMap(u);
-${""?left_pad(indent)}      if (o != null) m.putAll(Beans.beanToMap(o));
+${""?left_pad(indent)}      Map<String,Object> m = null;
+${""?left_pad(indent)}      if (u instanceof java.util.Map) {
+${""?left_pad(indent)}        m = (Map<String,Object>) u;
+${""?left_pad(indent)}      } else {
+${""?left_pad(indent)}        m = Beans.beanToMap(u);
+${""?left_pad(indent)}      }
+${""?left_pad(indent)}      if (o != null) { 
+${""?left_pad(indent)}        m.putAll(Beans.beanToMap(o));
       <#if varObj.alias??>
         <#list arrayValObj.attributes as attr>
           <#if attr.value.variable?starts_with(varObj.name + ".")>
             <#local attrnameOfVarObj = attr.value.variable?substring(varObj.name?length + 1)>
             <#local attrOfVarObj = model.findAttributeByNames(varObj.type.componentType.name, attrnameOfVarObj)>
-${""?left_pad(indent)}      m.put("${varObj.name}_${modelbase.get_attribute_sql_name(attrOfVarObj)}", o.${modelbase4java.name_getter(attrOfVarObj)}());   
+${""?left_pad(indent)}        m.put("${varObj.name}_${modelbase.get_attribute_sql_name(attrOfVarObj)}", o.${modelbase4java.name_getter(attrOfVarObj)}());   
             <#break>      
           </#if>    
         </#list>     
       </#if>
+${""?left_pad(indent)}      }      
 ${""?left_pad(indent)}      return m;
       <#if (compoundCondition?index == compoundConditionLength - 1)>
 ${""?left_pad(indent)}    });
@@ -1241,18 +1253,23 @@ ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_n
       <#local compObj = varObj.componentType>
     <#else>
       <#local compObj = varObj.type>
-    </#if>  
+    </#if> 
+    <#if strs?size == 1>
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${java.nameVariable(strs[0])});          
+      <#return>
+    </#if>
     <#local valueAttrInCompObj = compObj.getAttribute(strs[1])>
     <#if varObj.componentType?? && compObj.name == attrInDataObj.parent.name>
       <#-- 集合对象中的属性，并且是首个对象中的属性，【首对象属性】 -->
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${loopVar}.get${java.nameType(modelbase.get_attribute_sql_name(valueAttrInCompObj))}());
     <#elseif varObj.componentType??>
+      <#-- FIXME: 注意此处什么时候是map什么时候是bean。         -->
       <#-- 集合对象中的属性，不是首个对象中的属性                 -->
       <#-- 这种情况是调用Datesets.join方法后再从map里面取对应值的 -->
       <#if varObj.alias??>
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}((${modelbase4java.type_attribute_primitive(valueAttrInCompObj)})${loopVar}.get("${varObj.name}_${modelbase.get_attribute_sql_name(valueAttrInCompObj)}"));       
       <#else>
-${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}((${modelbase4java.type_attribute_primitive(valueAttrInCompObj)})${loopVar}.get("${modelbase.get_attribute_sql_name(valueAttrInCompObj)}")); 
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${loopVar}.${modelbase4java.name_getter(valueAttrInCompObj)}()); 
       </#if>
     <#else>
       <#-- 非集合对象中的属性 -->
