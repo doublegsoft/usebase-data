@@ -511,3 +511,82 @@
   </#if>
   <#return ret>
 </#function>
+
+<#--
+ ### 解析并提取当前对象中所引用的所有底层原始领域对象。
+ ### <p>
+ ### 在 ModelBase 架构中，DTO（数据传输对象）或视图对象通常是由多个底层实体（Entities）
+ ### 的字段拼装而成的。该函数通过扫描对象属性上的 `@original` 标签，反向推导出这个对象
+ ### 依赖了哪些底层的领域模型对象。
+ ###
+ ### 业务场景 (Use Case):
+ ### 通常用于代码生成器在生成 DTO 的 Assembler（装配器）、Controller 或 Service 时，
+ ### 自动推断并导入（Import）或注入（@Autowired）被依赖的底层服务。
+ ###
+ ### 逻辑流程 (Logic Flow):
+ ### 1. 初始化容器: 创建一个空列表用于存放结果 (ret)，以及一个 Map 用于名称去重 (added)。
+ ### 2. 遍历属性: 检查传入对象的所有属性。
+ ### 3. 过滤标签: 仅处理带有 "original" 映射标签的属性。
+ ### 4. 名称去重: 提取原始对象名，若该对象名已存在于 added 字典中，则跳过。
+ ### 5. 模型解析: 根据名称在全局模型中查找真实的 ObjectDefinition 实例，存入结果集并标记为已添加。
+ ###
+ ### @param obj
+ ###        待分析的源对象（通常为 DTO 或 Parameterized Object）
+ ###
+ ### @return
+ ###        当前对象所依赖的底层领域对象定义列表 (List of ObjectDefinition)
+ -->
+<#function get_objects_from_object obj>
+  <#local ret = []>
+  <#local added = {}>
+  <#list obj.attributes as attr>
+    <#if !attr.isLabelled("original")><#continue></#if>
+    <#local objname = attr.getLabelledOption("original", "object")>
+    <#if added[objname]??><#continue></#if>
+    <#local obj = model.findObjectByName(objname)>
+    <#local ret = ret + [obj]>
+    <#local added = added + {objname: true}>
+  </#list>
+  <#return ret>
+</#function>
+
+<#--
+ ### 按所属的底层领域对象（Entity），对当前 DTO 对象中的属性进行分组归类。
+ ### <p>
+ ### 该函数用于解决 DTO 到底层 Entity 的反向映射和拆包问题。
+ ### 它遍历输入对象的所有属性，提取它们上的 `@original` 映射标签，并根据标签中声明的
+ ### `object` (源对象名) 进行分组，最终返回一个以源对象名为 Key 的属性列表映射表。
+ ###
+ ### 返回数据结构示例 (Return Structure):
+ ### {
+ ###   "User": [AttributeDefinition(name), AttributeDefinition(email)],
+ ###   "UserProfile":[AttributeDefinition(address), AttributeDefinition(phone)]
+ ### }
+ ### 
+ ### 业务场景 (Use Case):
+ ### 通常用于生成级联保存 (Cascade Save) 或复杂装配 (Assembler) 的代码，
+ ### 让生成器知道：“这几个字段该塞给 User 对象，那几个字段该塞给 Profile 对象”。
+ ###
+ ### @param obj
+ ###        待分析的源对象（通常为 DTO, Form 或 Parameterized Object）
+ ###
+ ### @return
+ ###        分组后的 Hash Map，Key 为原始对象名 (String)，Value 为原始属性定义列表 (List)
+ -->
+<#function group_attributes_from_object obj>
+  <#local ret = {}>
+  <#list obj.attributes as attr>
+    <#if !attr.isLabelled("original")><#continue></#if>
+    <#local objname = attr.getLabelledOption("original", "object")>
+    <#local attrname = attr.getLabelledOption("original", "attribute")>
+    <#local attr = model.findAttributeByName(objname, attrname)>
+    <#if !ret[objname]??>
+      <#local ret = ret + {objname: []}>
+    </#if>
+    <#local attrs = ret[objname]>
+    <#local attrs = attrs + [attr]>
+    <#local ret = ret + {objname: attrs}>
+  </#list>
+  <#return ret>
+</#function>
+

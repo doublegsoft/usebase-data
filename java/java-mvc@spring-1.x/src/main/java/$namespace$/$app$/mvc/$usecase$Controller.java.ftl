@@ -52,9 +52,14 @@ public class ${java.nameType(usecase.name)}Controller extends BaseController {
   @PostMapping(value = "/${usecase.name}", produces = MediaType.APPLICATION_JSON_VALUE + ";charset=utf-8")
   public RestResult ${java.nameVariable(usecase.name)}(@RequestBody ${java.nameType(paramObj.name?substring(1))}Params params) {
     try {
-<#if retObj??>      
+<#if retObj??>
+  <#if retObj.getLabelledOptions("original")["array"]??>
+      List<${java.nameType(retObj.name?substring(1))}Result> results = ${java.nameVariable(usecase.name)}Service.${java.nameVariable(usecase.name)}(params);
+      return new RestResult(results);
+  <#else>
       ${java.nameType(retObj.name?substring(1))}Result result = ${java.nameVariable(usecase.name)}Service.${java.nameVariable(usecase.name)}(params);
       return new RestResult(result);
+  </#if>
 <#else>
       ${java.nameVariable(usecase.name)}Service.${java.nameVariable(usecase.name)}(params);
       return new RestResult();

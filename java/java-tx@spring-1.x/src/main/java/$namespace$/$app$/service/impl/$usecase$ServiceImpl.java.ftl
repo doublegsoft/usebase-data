@@ -115,7 +115,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#list paramObj.attributes as attr>
   <#if !attr.constraint.nullable>
     if (Strings.isBlank(${java.nameVariable(usebase4java.name_attribute(attr))})) {
-      throw new ServiceException(404, "${modelbase.get_attribute_label(attr)}是必要参数，不能为空值");
+      throw new ServiceException(400, "${modelbase.get_attribute_label(attr)}是必要参数，不能为空值");
     }
   </#if>
 </#list>
@@ -286,12 +286,17 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     </#list>
   </#if><#--if retObj.array-->  
 </#if>
-  <#if usecase.returnedObject??>  
+<#-- 处理返回值 -->
+<#if usecase.returnedObject??>  
+  <#if !usecase.returnedObject.getLabelledOption("original", "array")??>
     TRACER.info("${java.nameVariable(usecase.name)} exited with {}.", retVal);
-    return retVal;
   <#else>
-    TRACER.info("${java.nameVariable(usecase.name)} exited.");  
+    TRACER.info("${java.nameVariable(usecase.name)} exited.");
   </#if>  
+    return retVal;
+<#else>
+    TRACER.info("${java.nameVariable(usecase.name)} exited.");  
+</#if>  
   }
   
 }

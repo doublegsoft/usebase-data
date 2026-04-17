@@ -68,10 +68,19 @@ public class ${java.nameType(obj.name)} implements Serializable {
   }  
   <#elseif attr.isLabelled("original")>
     <#assign origObjName = attr.getLabelledOptions("original")["object"]>
+    <#assign origObj = model.findObjectByName(origObjName)>
     <#if !printedObjs[origObjName]??>
 
   public void copyFrom${java.nameType(origObjName)}(${java.nameType(origObjName)}Query ${java.nameVariable(origObjName)}) {
-    // TODO
+    <#list origObj.attributes as origObjAttr>
+      <#assign origObjAttrSqlName = modelbase.get_attribute_sql_name(origObjAttr)>
+      <#list obj.attributes as objAttr>
+        <#if origObjAttrSqlName == java.nameVariable(objAttr.name)>
+    this.set${java.nameType(objAttr.name)}(${java.nameVariable(origObjName)}.get${java.nameType(origObjAttrSqlName)}());
+        <#break>
+        </#if>
+      </#list>
+    </#list>
   }    
     </#if>
     <#assign printedObjs += {origObjName:origObjName}>

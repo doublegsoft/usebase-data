@@ -208,49 +208,53 @@
   <#if associationChain.getAssociatingObjects()?size != 0>
     <#local lastObjInChain = associationChain.getAssociatingObjects()[objSize - 1]>
   </#if>
+  <#------------------------------------------------------------>
+  <#-- 注意：此处说明的的是paramObj和retObj存在的隐式或显式的关联对象 -->
+  <#------------------------------------------------------------>
   <#if (objSize > 1)>
-  <#local prevObjInChain = firstObjInChain>
-  <#list 1..(objSize-1) as index>
-    <#local obj = associationChain.getAssociatingObjects()[index]>
-    <#if masterObjs[obj.name]??><#continue></#if>
+    <#local prevObjInChain = firstObjInChain>
+    <#list 1..(objSize-1) as index>
+      <#local obj = associationChain.getAssociatingObjects()[index]>
+      <#if masterObjs[obj.name]??><#continue></#if>
 ${""?left_pad(indent)}Integer ${java.nameVariable(obj.name)}RowIndex = 0;
 ${""?left_pad(indent)}Map<Object,Integer> ${java.nameVariable(obj.name)}IdIndexes = new HashMap<>();
-    <#local masterObjs += {obj.name:obj.name}>
-  </#list>
-  <#local masterObjs = {}> 
-  <#list 1..(objSize-1) as index>
-    <#local obj = associationChain.getAssociatingObjects()[index]>
-    <#local masterObjs += {obj.name:obj.name}>
-${""?left_pad(indent)}// 查询【${modelbase.get_object_label(obj)}】集合对象       
+      <#local masterObjs += {obj.name:obj.name}>
+    </#list>
+    <#local masterObjs = {}> 
+    <#list 1..(objSize-1) as index>
+      <#local obj = associationChain.getAssociatingObjects()[index]>
+      <#local masterObjs += {obj.name:obj.name}>
+${""?left_pad(indent)}// 查询【${modelbase.get_object_label(obj)}】集合对象
 ${""?left_pad(indent)}${java.nameVariable(obj.name)}Query = new ${java.nameType(obj.name)}Query();
 ${""?left_pad(indent)}${java.nameVariable(obj.name)}Query.setLimit(-1);
-    <#if index == 1>
-      <#local idAttrFirstObjInChain = modelbase.get_id_attributes(firstObjInChain)?first>
+      <#if index == 1>
+        <#local idAttrFirstObjInChain = modelbase.get_id_attributes(firstObjInChain)?first>
 ${""?left_pad(indent)}${java.nameVariable(obj.name)}Query.${modelbase4java.name_setter(idAttrFirstObjInChain)}(${modelbase.get_attribute_sql_name(idAttrFirstObjInChain)});    
-    <#else>
-      <#local idAttrPrevObjInChain = modelbase.get_id_attributes(prevObjInChain)?first>
+      <#else>
+        <#local idAttrPrevObjInChain = modelbase.get_id_attributes(prevObjInChain)?first>
 ${""?left_pad(indent)}for (${java.nameType(prevObjInChain.name)}Query row : ${java.nameVariable(inflector.pluralize(prevObjInChain.name))}) {
 ${""?left_pad(indent)}  ${java.nameVariable(obj.name)}Query.add${java.nameType(modelbase.get_attribute_sql_name(idAttrPrevObjInChain))}(row.get${java.nameType(modelbase.get_attribute_sql_name(idAttrPrevObjInChain))}());
 ${""?left_pad(indent)}}
-    </#if>
+      </#if>
 ${""?left_pad(indent)}Pagination<${java.nameType(obj.name)}Query> paged${java.nameType(inflector.pluralize(obj.name))} = ${java.nameVariable(obj.name)}Service.find${java.nameType(inflector.pluralize(obj.name))}(${java.nameVariable(obj.name)}Query);
 ${""?left_pad(indent)}List<${java.nameType(obj.name)}Query> ${java.nameVariable(inflector.pluralize(obj.name))} = paged${java.nameType(inflector.pluralize(obj.name))}.getData();        
-    <#local prevObjInChain = obj>
-  </#list>
+      <#local prevObjInChain = obj>
+    </#list>
   </#if>
   <#-------------------------->
   <#-- 结果对象的自关联查询语句 -->
   <#-------------------------->
+  <#local objsInRetObj = usebase.get_objects_from_object(retObj)>
   <#list retObj.attributes as attr>
     <#if !attr.isLabelled("original")><#continue></#if>
     <#local objname = attr.getLabelledOption("original", "object")>
-    <#local opname = attr.getLabelledOption("original", "operator")!"">
+    <#local opname = attr.getLabelledOption("original", "operator")!""><#-- 这是衍生属性才会有 -->
     <#if masterObjs[objname]??><#continue></#if>
       <#-- 当有聚合运算符时，跳过主要对象的查询参数赋值 -->
     <#if opname == "">
       <#-- 当没有运算符的定义时，主要对象的查询参数赋值 -->
       <#local masterObjs += {objname: objname}>
-${""?left_pad(indent)}// 查询【${modelbase.get_object_label(model.findObjectByName(objname))}】集合对象       
+${""?left_pad(indent)}// 查询【${modelbase.get_object_label(model.findObjectByName(objname))}】集合对象
 ${""?left_pad(indent)}${java.nameVariable(objname)}Query = new ${java.nameType(objname)}Query();
 ${""?left_pad(indent)}${java.nameVariable(objname)}Query.setLimit(-1);
       <#list paramObj.attributes as paramAttr>
@@ -258,9 +262,12 @@ ${""?left_pad(indent)}${java.nameVariable(objname)}Query.setLimit(-1);
         <#if originalObjName == objname>
 ${""?left_pad(indent)}${java.nameVariable(objname)}Query.set${java.nameType(modelbase.get_attribute_sql_name(paramAttr))}(${modelbase.get_attribute_sql_name(paramAttr)});
         </#if>
-      </#list>
+      </#list>   
     </#if>
     <#if attr.getLabelledOption("conjunction", "target_attribute")??>
+      <#-------------------------------->
+      <#-- 通过conjunction定义的关联关系 -->
+      <#-------------------------------->
       <#local masterObjs += {objname: objname}>
       <#local targetObjName = attr.getLabelledOption("conjunction", "target_object")>
       <#local targetAttrName = attr.getLabelledOption("conjunction", "target_attribute")>
@@ -273,9 +280,9 @@ ${""?left_pad(indent)}${java.nameVariable(objname)}Query.set${java.nameType(mode
 ${""?left_pad(indent)}for (${java.nameType(targetObj.name)}Query row : ${java.nameVariable(inflector.pluralize(targetObj.name))}) {
 ${""?left_pad(indent)}  ${java.nameVariable(sourceObj.name)}Query.add${java.nameType(modelbase.get_attribute_sql_name(sourceObjAttr))}(row.get${java.nameType(modelbase.get_attribute_sql_name(targetObjAttr))}());
 ${""?left_pad(indent)}}
-    </#if>     
+    </#if>    
 ${""?left_pad(indent)}Pagination<${java.nameType(objname)}Query> paged${java.nameType(inflector.pluralize(objname))} = ${java.nameVariable(objname)}Service.find${java.nameType(inflector.pluralize(objname))}(${java.nameVariable(objname)}Query);
-${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(inflector.pluralize(objname))} = paged${java.nameType(inflector.pluralize(objname))}.getData();    
+${""?left_pad(indent)}List<${java.nameType(objname)}Query> ${java.nameVariable(inflector.pluralize(objname))} = paged${java.nameType(inflector.pluralize(objname))}.getData();   
   </#list>
   <#local slaveObjs = {}>
   <#list retObj.attributes as attr>
@@ -385,6 +392,8 @@ ${""?left_pad(indent)}}
 ${""?left_pad(indent)}if (${java.nameVariable(objname)} == null) {
 ${""?left_pad(indent)}  throw new ServiceException(404, "${modelbase.get_object_label(obj)}不存在");
 ${""?left_pad(indent)}}
+${""?left_pad(indent)}// 【${modelbase.get_object_label(obj)}】作为主对象的拷贝赋值
+${""?left_pad(indent)}retVal.copyFrom${java.nameType(obj.name)}(${java.nameVariable(obj.name)});
   <#------------------------------------------------------------------>
   <#-- 3. 根据查询出其余的对象组合成返回的“聚根”对象，包括：单一对象和数组对象 -->
   <#------------------------------------------------------------------>
@@ -401,10 +410,10 @@ ${""?left_pad(indent)}${java.nameVariable(obj.name)}Query.setLimit(-1);
   <#-------------------------------------->
   <#-- 声明全部查询结果对象 -->
   <#-------------------------------------->
-  <#list relatingObjs as singleObj>
+  <#--  <#list relatingObjs as singleObj>
     <#if !singleObjs[singleObj.name]?? || alreadyDeclaredObjs[singleObj.name]??><#continue></#if>
 ${""?left_pad(indent)}${java.nameType(singleObj.name)}Query ${java.nameVariable(singleObj.name)} = null;
-  </#list>
+  </#list>  -->
   <#list relatingObjs as arrayObj>
     <#if !arrayObjs[arrayObj.name]??><#continue></#if>
 ${""?left_pad(indent)}List<${java.nameType(arrayObj.name)}Query> ${java.nameVariable(inflector.pluralize(arrayObj.name))} = new ArrayList<>();
@@ -419,6 +428,8 @@ ${""?left_pad(indent)}List<${java.nameType(arrayObj.name)}Query> ${java.nameVari
       <#if objRels?index != 0>
 ${""?left_pad(indent)}// 查询【${modelbase.get_object_label(obj)}】数据          
 ${""?left_pad(indent)}${java.nameVariable(obj.name)} = ${java.nameVariable(obj.name)}Service.get${java.nameType(obj.name)}(${java.nameVariable(obj.name)}Query);
+${""?left_pad(indent)}// 【${modelbase.get_object_label(obj)}】作为从对象的拷贝赋值
+${""?left_pad(indent)}retVal.copyFrom${java.nameType(obj.name)}(${java.nameVariable(obj.name)});
       </#if>
       <#list objRels.relationships as rel>
         <#local selfObj = rel.getAnotherObject(obj.name)>
