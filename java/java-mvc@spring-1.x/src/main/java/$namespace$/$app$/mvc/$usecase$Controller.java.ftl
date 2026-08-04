@@ -34,7 +34,6 @@ import org.springframework.http.MediaType;
 import <#if namespace??>${namespace}.</#if>${app.name}.poco.*;
 import <#if namespace??>${namespace}.</#if>${app.name}.orm.assembler.*;
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.payload.*;
-import <#if namespace??>${namespace}.</#if>${app.name}.dto.msg.*;
 import <#if namespace??>${namespace}.</#if>${app.name}.service.*;
 
 /**

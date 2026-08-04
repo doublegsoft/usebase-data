@@ -416,6 +416,9 @@
   <#local uniqueAttrNames = obj.getLabelledOptionAsList("unique", "attribute")>
   <#local uniqueAttrTypes = obj.getLabelledOptionAsList("unique", "type")>
   <#local uniqueAttrVals = obj.getLabelledOptionAsList("unique", "value")>
+  <#if uniqueObjNames?size == 0>
+    <#return ret>
+  </#if>
   <#list 0..(uniqueObjNames?size - 1) as idx>
     <#local uniqueObjName = uniqueObjNames[idx]>
     <#local uniqueAttrName = uniqueAttrNames[idx]>

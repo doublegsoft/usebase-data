@@ -739,7 +739,7 @@ ${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.update${java.na
   <#if assign.assignOp == "=">
     <#if assign.value.invocation??>
       <#local invo = assign.value.invocation>
-${""?left_pad(indent)}${type_variable(usecase, assign.assignee)} ${java.nameVariable(assign.assignee)} = helper.${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = helper.${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg.name)}</#list>);
     <#elseif assign.value.objectValue??>
       <#if assign.operator?ends_with("+|")>
 ${""?left_pad(indent)}// 保存后再赋值 
@@ -946,7 +946,8 @@ ${""?left_pad(indent)}if (page${java.nameType(assign.assignee)}.getData().isEmpt
 ${""?left_pad(indent)}  throw new ServiceException(404, "${message}");
 ${""?left_pad(indent)}}
   <#elseif value.objectValue??>
-    <#local origObjName = value.objectValue.getLabelledOption("original","object")>
+    <#local origObjName = value.objectValue.getLabelledOption("original","object")!"">
+    <#if origObjName == ""><#return></#if>
     <#local message = value.objectValue.getLabelledOption("required", "message")!"">
     <#local origObj = model.findObjectByName(origObjName)>
     <#local origObjIdAttr = modelbase.get_id_attributes(origObj)?first>
@@ -957,9 +958,9 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);
 <@print_unique_labels_setter varname=(origObjName+"Query") objval=value.objectValue indent=indent /> 
 ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(inflector.pluralize(origObjName))} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);  
 ${""?left_pad(indent)}if (!page${java.nameType(inflector.pluralize(origObjName))}.getData().isEmpty()) {
-${""?left_pad(indent)}  ${java.nameVariable(assign.assignee)} = page${java.nameType(inflector.pluralize(origObjName))}.getData().get(0);
+${""?left_pad(indent)}  ${java.nameVariable(assign.assignee.name)} = page${java.nameType(inflector.pluralize(origObjName))}.getData().get(0);
     <#if usecase.getVariable(origObjName + "_" + origObjIdAttr.name)?? || usecase.getVariable(origObjIdAttr.name)??>
-${""?left_pad(indent)}  ${modelbase.get_attribute_sql_name(origObjIdAttr)} = ${java.nameVariable(assign.assignee)}.${modelbase4java.name_getter(origObjIdAttr)}();
+${""?left_pad(indent)}  ${modelbase.get_attribute_sql_name(origObjIdAttr)} = ${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_getter(origObjIdAttr)}();
     </#if>
     <#if message != "">
 ${""?left_pad(indent)}} else {
@@ -1094,7 +1095,7 @@ ${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = new ${java.nameTyp
 <@print_object_object_copy sourceObj=sourceObj sourceVarName=sourceVarName targetObj=model.findObjectByName(origObjName) targetVarName=java.nameVariable(assign.assignee) indent=indent />
     <#list assign.value.objectValue.attributes as attr>
       <#local attrInDataModel = modelbase.get_attribute_from_original(attr)>
-<@print_attribute_set_for_value loopVar="" objVar=assign.assignee attrInDataObj=attrInDataModel value=attr.value indent=indent />      
+<@print_attribute_set_for_value loopVar="" objVar=assign.assignee attrInDataObj=attrInDataModel value=attr.value!"" indent=indent />      
 <#--  ${""?left_pad(indent)}${java.nameVariable(assign.assignee)}.${modelbase4java.name_setter(attrInDataModel)}(null);       -->
     </#list>
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query.setDefaultValues(${java.nameVariable(assign.assignee)}, true);
@@ -1439,17 +1440,21 @@ ${""?left_pad(indent)}${java.nameVariable(targetVarName)}.set${java.nameType(mod
     <#if attrval == "">
       <#local varObj = usecase.getVariable(attrtype)!"">
     </#if>
-    <#if attrtype == "string"><#-- 字符串常量作为值 -->
+    <#-- 字符串常量作为值 -->
+    <#if attrtype == "string">
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}("${label.value}");              
-    <#elseif attrtype == "number"><#-- 数字常量作为值 -->
+    <#-- 数字常量作为值 -->
+    <#elseif attrtype == "number">
       <#if modelbase4java.type_attribute_primitive(objAttr) == "Long">
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${label.value}L); 
       <#else>
-${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${label.value});       
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${label.value}); 
       </#if>
-    <#elseif attrtype == attrname><#-- 说明只指定了一个变量，且对象属性和变量的名称相同 -->
-${""?left_pad(indent)}${java.nameVariable(varname)}.set${java.nameType(attrname)}(${java.nameVariable(attrname)});   
-    <#elseif varObj != ""><#-- usecase中注册的变量作为值 -->
+    <#-- 说明只指定了一个变量，且对象属性和变量的名称相同 -->  
+    <#elseif attrtype == attrname>
+${""?left_pad(indent)}${java.nameVariable(varname)}.set${java.nameType(attrname)}(${java.nameVariable(attrname)});
+    <#-- 用例中注册的变量作为值 -->
+    <#elseif varObj != "">
       <#if varObj.type.collection>
         <#local compObj = varObj.type.componentType>
         <#local valueAsDataAttr = model.findAttributeByNames(compObj.name, value)>
@@ -1462,12 +1467,14 @@ ${""?left_pad(indent)}}
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${java.nameVariable(varObj.name)}.${modelbase4java.name_getter(valueAsDataAttr)}());
         </#if> 
       </#if>       
-    <#elseif attrval != ""><#-- FIXME: 显示引用的属性作为值（描述不准确）-->
-${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(attrval)}); 
-    <#elseif attrtype == value><#-- NOTE -->
+    <#-- 方法体中，显示引用的属性作为值（描述不准确）-->  
+    <#elseif attrval != "">
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(attrval)});
+    <#-- 引用某个对象变量的属性 -->
+    <#elseif attrtype == value>
       <#local strs = attrtype?split(".")>
       <#if strs?size == 1>
-${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(objAttr)}());   
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(objAttr)}()); 
       <#else>
         <#if usecase.getVariable(strs[0])??>
           <#local varObj = usecase.getVariable(strs[0])>
@@ -1477,8 +1484,12 @@ ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter
 ${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${java.nameVariable(strs[0])}.${modelbase4java.name_getter(objAttr)}());  
         </#if>       
       </#if> 
-    <#elseif objAttr != ""><#-- FIXME: 隐式引用的属性作为值（描述不准确） -->
-${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(objAttr)});    
+    <#-- 隐式引用的属性作为值，没有明确指定值，值和赋值对象相同 -->
+    <#elseif objAttr != "" && value == "">
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${modelbase.get_attribute_sql_name(objAttr)}); 
+     <#-- 隐式引用的属性作为值，明确指定了值，值和赋值对象不相同 -->
+    <#elseif objAttr != "" && value != "">
+${""?left_pad(indent)}${java.nameVariable(varname)}.${modelbase4java.name_setter(objAttr)}(${java.nameVariable(value)});
     </#if>     
   </#list>
 </#macro>
@@ -1583,10 +1594,12 @@ ${""?left_pad(indent)}${java.nameType(obj.name)}Query unique${java.nameType(obj.
   </#if>
   <#list usecase.allStatements as stmt>
     <#if stmt.assignee??>
-      <#if printedObjs[stmt.assignee]??><#continue></#if>
+      <#if printedObjs[stmt.assignee.name]??><#continue></#if>
       <#if stmt.value.objectValue??>
-        <#local origObjName = stmt.value.objectValue.getLabelledOption("original", "object")>
-${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(stmt.assignee)} = null;  
+        <#local origObjName = stmt.value.objectValue.getLabelledOption("original", "object")!"">
+        <#if origObjName == ""><#continue></#if>
+        <#local printedObjs += {stmt.assignee.name: stmt.assignee.name}>
+${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(stmt.assignee.name)} = null;  
       </#if>    
     </#if>
   </#list>

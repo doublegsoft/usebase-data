@@ -9,7 +9,7 @@ ${java.license(license)}
 package ${namespace}.${java.nameType(app.name)?lower_case}.service;
 
 import java.util.List;
-import ${namespace}.${java.nameType(app.name)?lower_case}.dto.msg.*;
+import ${namespace}.${java.nameType(app.name)?lower_case}.dto.payload.*;
 
 public interface ${java.nameType(usecase.name)}Service {
   

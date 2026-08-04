@@ -27,7 +27,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.payload.*;
-import <#if namespace??>${namespace}.</#if>${app.name}.dto.msg.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.service.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.util.*;
 import ${namespace}.${java.nameType(app.name)?lower_case}.service.helper.*;
@@ -83,26 +82,29 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   <#assign printedAttrs += {modelbase.get_attribute_sql_name(idAttr): idAttr.name}>
     ${modelbase4java.type_attribute_primitive(idAttr)} ${modelbase.get_attribute_sql_name(idAttr)} = null;
 </#list>
-<#list usecase.parameterizedObject.attributes as attr>
+<#--  <#list usecase.parameterizedObject.attributes as attr>
   <#if printedAttrs[modelbase.get_attribute_sql_name(attr)]??><#continue></#if>
   <#assign printedAttrs += {modelbase.get_attribute_sql_name(attr): attr.name}>
     ${modelbase4java.type_attribute_primitive(attr)} ${modelbase.get_attribute_sql_name(attr)} = null;  
-</#list>
+</#list>  -->
 <#--------------------------------->
 <#-- 声明所有参数对象的属性，并且赋值 -->
 <#--------------------------------->
 <#list paramObj.attributes as attr>
   <#if explicitIdAttrs[modelbase.get_attribute_sql_name(attr)]??>
     <#assign assignedIdAttr = attr>
-    ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
+    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
   <#else>
     <#if attr.constraint.defaultValue??>
-    ${java.nameVariable(attr.name)} = "${attr.constraint.defaultValue}";
+    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
+    if (${java.nameVariable(attr.name)} == null) {
+      ${java.nameVariable(attr.name)} = "${attr.constraint.defaultValue}";
+    }
     <#else>
       <#if attr.type.collection>
-    List<${java.nameType(attr.type.componentType.name)}Info> ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
+    List<${java.nameType(attr.type.componentType.name)}Query> ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
       <#else>
-    ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
+    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
       </#if>
     </#if>
   </#if>  
@@ -151,18 +153,20 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
       throw new ServiceException(403, "${modelbase.get_object_label(uniqueObj)}已经存在，不能重复创建");
     }
 </#if>
+<#if usecase.statements?size == 0>
 <#--------------------->
 <#-- 处理【模式化】逻辑 -->
 <#--------------------->
-<#if usecase.statements?size == 0>
 <@usebase4java.print_body usecase=usecase indent=4 />  
-</#if>
+<#else>
 <#--------------------->
 <#-- 处理【自定义】逻辑 -->
 <#--------------------->
-<#list usecase.statements as stmt>
+  <#list usecase.statements as stmt>
 <@usebase4java.print_statement usecase=usecase stmt=stmt indent=4 />  
-</#list>
+  </#list>
+</#if>
+
 <#--------------------->
 <#-- 封装服务函数返回值 -->
 <#--------------------->
@@ -180,7 +184,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
         <#--
          ### 处理来自原始对象的属性（非计算字段）                                 
          ###                                                     
-         ### 三个必要条件（AND关系）：                                
+         ### 三个必要条件（AND关系）：
          ### 1. origObjName != "" : 该属性有明确的原始对象来源          
          ### 2. !retObjs[origObjName]?? : 该原始对象还未被处理过（防重复）
          ### 3. opname == "" : 不是操作符生成的字段（是直接映射字段）       
