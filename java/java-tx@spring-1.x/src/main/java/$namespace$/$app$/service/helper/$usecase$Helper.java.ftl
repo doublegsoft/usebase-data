@@ -29,7 +29,7 @@ public class ${java.nameType(usecase.name)}Helper {
     <#if assign.assignOp == "=">
       <#if assign.value.invocation??>
         <#assign invo = assign.value.invocation>
-  public ${usebase4java.type_variable(usecase, assign.assignee)} ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${usebase4java.type_variable(usecase, arg)} ${java.nameVariable(arg)}</#list>) {  
+  public ${usebase4java.type_variable(usecase, assign.assignee.name)} ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${usebase4java.type_variable(usecase, arg)} ${java.nameVariable(arg.name)}</#list>) {  
     // TODO   
     return null;
   }
@@ -37,7 +37,7 @@ public class ${java.nameType(usecase.name)}Helper {
     </#if>  
   <#elseif stmt.operator?ends_with("@|")>
     <#assign invo = stmt.invocation>
-  public void ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${usebase4java.type_variable(usecase, arg)} ${java.nameVariable(arg)}</#list>) {      
+  public void ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${usebase4java.type_variable(usecase, arg.name)} ${java.nameVariable(arg.name)}</#list>) {      
 
   }  
   </#if>

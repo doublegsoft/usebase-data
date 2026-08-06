@@ -41,6 +41,13 @@
   <#if attrVar??>
     <#return modelbase4java.type_attribute(attrVar)>
   </#if>
+  <#if usecase.getVariable(varname)??>
+    <#local varObj = usecase.getVariable(varname)>
+    <#if varObj.type.custom>
+      <#return java.nameType(varObj.type.name) + "Query"> 
+    </#if>
+    <#return modelbase4java.type_attribute(varObj)>
+  </#if>
   <#return "String">
 </#function>
 
@@ -864,7 +871,7 @@ ${""?left_pad(indent)}!${name_value_access(usecase, cmp.comparand)} != ${cmp.val
  -->
 <#macro print_statement_invocation usecase stmt indent>
   <#local invo = stmt.invocation>
-${""?left_pad(indent)}helper.${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg)}</#list>);      
+${""?left_pad(indent)}helper.${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${java.nameVariable(arg.name)}</#list>);      
 </#macro>
 
 <#--
@@ -892,10 +899,11 @@ ${""?left_pad(indent)}helper.${java.nameVariable(invo.method)}(<#list invo.argum
  ###        代码缩进级别
  -->
 <#macro print_statement_return usecase stmt indent>
+${""?left_pad(indent)}
   <#list stmt.variables as varname>
     <#local varObj = usecase.getVariable(varname)>
-    <#if varObj.collection>
-${""?left_pad(indent)}retVal.copyFrom${java.nameType(inflector.pluralize(varObj.type.name))}(${java.nameVariable(varname)});    
+    <#if varObj.type.collection>
+${""?left_pad(indent)}retVal.set${java.nameType(inflector.pluralize(varObj.type.componentType.name))}(${java.nameVariable(varname)});    
     <#else>
 ${""?left_pad(indent)}retVal.copyFrom${java.nameType(varObj.type.name)}(${java.nameVariable(varname)});
     </#if>
@@ -939,12 +947,14 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query = new ${java.nameTy
 ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);    
 <#-- 设置查询条件 -->
 <@print_unique_labels_setter varname=(origObjName+"Query") objval=value.arrayValue indent=indent />    
-${""?left_pad(indent)}List<${java.nameType(origObjName)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();
-${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(assign.assignee)} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);    
-${""?left_pad(indent)}${java.nameVariable(assign.assignee)}.addAll(page${java.nameType(assign.assignee)}.getData());
-${""?left_pad(indent)}if (page${java.nameType(assign.assignee)}.getData().isEmpty()) {
+${""?left_pad(indent)}List<${java.nameType(origObjName)}Query> ${java.nameVariable(assign.assignee.name)} = new ArrayList<>();
+${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(assign.assignee.name)} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);    
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.addAll(page${java.nameType(assign.assignee.name)}.getData());
+    <#if message != "">
+${""?left_pad(indent)}if (page${java.nameType(assign.assignee.name)}.getData().isEmpty()) {
 ${""?left_pad(indent)}  throw new ServiceException(404, "${message}");
 ${""?left_pad(indent)}}
+    </#if>
   <#elseif value.objectValue??>
     <#local origObjName = value.objectValue.getLabelledOption("original","object")!"">
     <#if origObjName == ""><#return></#if>
