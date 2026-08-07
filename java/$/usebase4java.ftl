@@ -39,7 +39,11 @@
     </#list>
   </#if>
   <#if attrVar??>
-    <#return modelbase4java.type_attribute(attrVar)>
+    <#if attrVar.type.collection>
+      <#return modelbase4java.type_attribute(attrVar, "Query")>
+    <#else>
+      <#return modelbase4java.type_attribute(attrVar)>
+    </#if>
   </#if>
   <#if usecase.getVariable(varname)??>
     <#local varObj = usecase.getVariable(varname)>
@@ -902,6 +906,10 @@ ${""?left_pad(indent)}helper.${java.nameVariable(invo.method)}(<#list invo.argum
 ${""?left_pad(indent)}
   <#list stmt.variables as varname>
     <#local varObj = usecase.getVariable(varname)>
+    <#if !varObj.type??>
+${""?left_pad(indent)}retVal.copyFrom${java.nameType(varObj.name)}(${java.nameVariable(varname)});
+      <#return>
+    </#if>
     <#if varObj.type.collection>
 ${""?left_pad(indent)}retVal.set${java.nameType(inflector.pluralize(varObj.type.componentType.name))}(${java.nameVariable(varname)});    
     <#else>

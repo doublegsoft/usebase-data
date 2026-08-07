@@ -104,7 +104,6 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
       <#if attr.type.collection>
     List<${java.nameType(attr.type.componentType.name)}Query> ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
       <#else>
-    // ${attr.type.name}
     ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
       </#if>
     </#if>

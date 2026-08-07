@@ -7,6 +7,7 @@ ${java.license(license)}
 </#if>
 package ${namespace}.${java.nameType(app.name)?lower_case}.service.helper;
 
+import java.util.*;
 import jakarta.inject.Named;  
 
 import <#if namespace??>${namespace}.</#if>${app.name}.dto.payload.*;
@@ -29,7 +30,7 @@ public class ${java.nameType(usecase.name)}Helper {
     <#if assign.assignOp == "=">
       <#if assign.value.invocation??>
         <#assign invo = assign.value.invocation>
-  public ${usebase4java.type_variable(usecase, assign.assignee.name)} ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${usebase4java.type_variable(usecase, arg)} ${java.nameVariable(arg.name)}</#list>) {  
+  public ${usebase4java.type_variable(usecase, assign.assignee.name)} ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>, </#if>${usebase4java.type_variable(usecase, arg.name)} ${java.nameVariable(arg.name)}</#list>) {  
     // TODO   
     return null;
   }
