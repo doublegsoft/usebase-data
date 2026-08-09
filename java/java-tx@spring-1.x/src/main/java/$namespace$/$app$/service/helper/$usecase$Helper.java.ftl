@@ -7,6 +7,7 @@ ${java.license(license)}
 </#if>
 package ${namespace}.${java.nameType(app.name)?lower_case}.service.helper;
 
+import java.sql.Timestamp;
 import java.util.*;
 import jakarta.inject.Named;  
 

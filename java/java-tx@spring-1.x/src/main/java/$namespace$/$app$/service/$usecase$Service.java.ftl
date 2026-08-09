@@ -8,6 +8,7 @@ ${java.license(license)}
 </#if>
 package ${namespace}.${java.nameType(app.name)?lower_case}.service;
 
+import java.sql.Timestamp;
 import java.util.List;
 import ${namespace}.${java.nameType(app.name)?lower_case}.dto.payload.*;
 

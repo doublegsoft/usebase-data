@@ -13,6 +13,7 @@ ${java.license(license)}
 </#if>
 package ${namespace}.${java.nameType(app.name)?lower_case}.service.impl;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Date;
@@ -107,10 +108,11 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
       </#if>
     </#if>
-  </#if>  
+  </#if>
+  <#assign printedAttrs += {modelbase.get_attribute_sql_name(attr): attr.name}>
 </#list>
 <#-- 在语句中潜在的对象查询变量 -->
-<@usebase4java.print_variables_for_usecase usecase=usecase indent=4 />
+<@usebase4java.print_variables_for_usecase usecase=usecase printedAttrs=printedAttrs indent=4 />
 <#---------------->
 <#-- 必要字段校验 -->
 <#---------------->

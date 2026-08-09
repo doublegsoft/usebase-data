@@ -39,16 +39,30 @@
     </#list>
   </#if>
   <#if attrVar??>
-    <#if attrVar.type.collection>
+    <#if attrVar.type.collection || attrVar.type.custom>
       <#return modelbase4java.type_attribute(attrVar, "Query")>
     <#else>
-      <#return modelbase4java.type_attribute(attrVar)>
+      <#return modelbase4java.type_attribute_primitive(attrVar)>
     </#if>
   </#if>
   <#if usecase.getVariable(varname)??>
     <#local varObj = usecase.getVariable(varname)>
+    <#if !varObj.type??>
+      <#if usecase.returnedObject??>
+        <#list usecase.statements as stmt>
+          <#if stmt.operator?ends_with(".|")>
+            <#if stmt.variables[0] == varname>
+              <#return java.nameType(usecase.returnedObject.getLabelledOptions("original")["object"]) + "Query">
+            </#if>
+          </#if>
+        </#list>
+      </#if>
+      <#return "Object">
+    </#if>
     <#if varObj.type.custom>
       <#return java.nameType(varObj.type.name) + "Query"> 
+    <#elseif varObj.type.collection && model.findObjectByName(varObj.type.componentType.name)??>
+      <#return "List<" + java.nameType(varObj.type.componentType.name) + "Query>"> 
     </#if>
     <#return modelbase4java.type_attribute(varObj)>
   </#if>
@@ -907,7 +921,7 @@ ${""?left_pad(indent)}
   <#list stmt.variables as varname>
     <#local varObj = usecase.getVariable(varname)>
     <#if !varObj.type??>
-${""?left_pad(indent)}retVal.copyFrom${java.nameType(varObj.name)}(${java.nameVariable(varname)});
+${""?left_pad(indent)}retVal.copyFrom${type_variable(usecase, varname)?replace("Query","")}(${java.nameVariable(varname)});
       <#return>
     </#if>
     <#if varObj.type.collection>
@@ -955,7 +969,7 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query = new ${java.nameTy
 ${""?left_pad(indent)}${java.nameVariable(origObjName)}Query.setLimit(-1);    
 <#-- 设置查询条件 -->
 <@print_unique_labels_setter varname=(origObjName+"Query") objval=value.arrayValue indent=indent />    
-${""?left_pad(indent)}List<${java.nameType(origObjName)}Query> ${java.nameVariable(assign.assignee.name)} = new ArrayList<>();
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = new ArrayList<>();
 ${""?left_pad(indent)}Pagination<${java.nameType(origObjName)}Query> page${java.nameType(assign.assignee.name)} = ${java.nameVariable(origObjName)}Service.find${java.nameType(inflector.pluralize(origObjName))}(${java.nameVariable(origObjName)}Query);    
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.addAll(page${java.nameType(assign.assignee.name)}.getData());
     <#if message != "">
@@ -1577,8 +1591,8 @@ ${""?left_pad(indent)}private ${java.nameType(obj.name)}Service ${java.nameVaria
  ### @param indent
  ###        代码缩进级别
  -->
-<#macro print_variables_for_usecase usecase indent>
-  <#local printedObjs = {}>
+<#macro print_variables_for_usecase usecase printedAttrs indent>
+  <#local printedObjs = printedAttrs>
   <#local usingDirectDataObjs = usecase.getDataObjects()>
   <#list usingDirectDataObjs as dataObj>
     <#local printedObjs += {dataObj.name:dataObj.name}>
@@ -1617,7 +1631,10 @@ ${""?left_pad(indent)}${java.nameType(obj.name)}Query unique${java.nameType(obj.
         <#local origObjName = stmt.value.objectValue.getLabelledOption("original", "object")!"">
         <#if origObjName == ""><#continue></#if>
         <#local printedObjs += {stmt.assignee.name: stmt.assignee.name}>
-${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(stmt.assignee.name)} = null;  
+${""?left_pad(indent)}${java.nameType(origObjName)}Query ${java.nameVariable(stmt.assignee.name)} = null; 
+      <#else>
+        <#local printedObjs += {stmt.assignee.name: stmt.assignee.name}>
+${""?left_pad(indent)}${usebase4java.type_variable(usecase, stmt.assignee.name)} ${java.nameVariable(stmt.assignee.name)} = null;       
       </#if>    
     </#if>
   </#list>

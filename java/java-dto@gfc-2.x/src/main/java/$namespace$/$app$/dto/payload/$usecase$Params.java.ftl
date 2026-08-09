@@ -6,9 +6,8 @@ ${java.license(license)}
 package ${namespace}.${app.name}.dto.payload;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.sql.*;
 /*!
 ** 
 */
