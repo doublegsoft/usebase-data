@@ -7,7 +7,8 @@ package ${namespace}.${app.name}.dto.payload;
 
 import java.io.Serializable;
 import java.util.*;
-import java.sql.*;
+import java.sql.Timestamp;
+import java.math.BigDecimal;
 /*!
 ** 
 */
