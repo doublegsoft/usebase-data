@@ -83,33 +83,45 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
   <#assign printedAttrs += {modelbase.get_attribute_sql_name(idAttr): idAttr.name}>
     ${modelbase4java.type_attribute_primitive(idAttr)} ${modelbase.get_attribute_sql_name(idAttr)} = null;
 </#list>
-<#--  <#list usecase.parameterizedObject.attributes as attr>
+<#list paramObj.attributes as attr>
   <#if printedAttrs[modelbase.get_attribute_sql_name(attr)]??><#continue></#if>
   <#assign printedAttrs += {modelbase.get_attribute_sql_name(attr): attr.name}>
-    ${modelbase4java.type_attribute_primitive(attr)} ${modelbase.get_attribute_sql_name(attr)} = null;  
-</#list>  -->
+  <#if explicitIdAttrs[modelbase.get_attribute_sql_name(attr)]??>
+    <#assign assignedIdAttr = attr>
+    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(attr.name)} = null;
+  <#else>
+    <#if attr.constraint.defaultValue??>
+    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(attr.name)} = null;
+    <#else>
+      <#if attr.type.collection>
+    List<${java.nameType(attr.type.componentType.name)}Query> ${java.nameVariable(attr.name)} = null;
+      <#else>
+    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(usebase4java.name_attribute(attr))} = null;
+      </#if>
+    </#if>
+  </#if>
+</#list>
 <#--------------------------------->
 <#-- 声明所有参数对象的属性，并且赋值 -->
 <#--------------------------------->
 <#list paramObj.attributes as attr>
   <#if explicitIdAttrs[modelbase.get_attribute_sql_name(attr)]??>
     <#assign assignedIdAttr = attr>
-    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
+    ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
   <#else>
     <#if attr.constraint.defaultValue??>
-    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
+    ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
     if (${java.nameVariable(attr.name)} == null) {
       ${java.nameVariable(attr.name)} = "${attr.constraint.defaultValue}";
     }
     <#else>
       <#if attr.type.collection>
-    List<${java.nameType(attr.type.componentType.name)}Query> ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
+    ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
       <#else>
-    ${modelbase4java.type_attribute_primitive(attr)} ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
+    ${java.nameVariable(usebase4java.name_attribute(attr))} = params.get${java.nameType(usebase4java.name_attribute(attr))}();
       </#if>
     </#if>
   </#if>
-  <#assign printedAttrs += {modelbase.get_attribute_sql_name(attr): attr.name}>
 </#list>
 <#-- 在语句中潜在的对象查询变量 -->
 <@usebase4java.print_variables_for_usecase usecase=usecase printedAttrs=printedAttrs indent=4 />

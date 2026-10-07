@@ -1123,15 +1123,14 @@ ${""?left_pad(indent)}}
      ### 直接从其他的变量作为数据源头，产生新的对象实例，
      ### 赋值给新实例。
      -->  
-${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = new ${java.nameType(origObjName)}Query();  
-<@print_object_object_copy sourceObj=sourceObj sourceVarName=sourceVarName targetObj=model.findObjectByName(origObjName) targetVarName=java.nameVariable(assign.assignee) indent=indent />
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = new ${java.nameType(origObjName)}Query();  
+<@print_object_object_copy sourceObj=sourceObj sourceVarName=sourceVarName targetObj=model.findObjectByName(origObjName) targetVarName=java.nameVariable(assign.assignee.name) indent=indent />
     <#list assign.value.objectValue.attributes as attr>
       <#local attrInDataModel = modelbase.get_attribute_from_original(attr)>
-<@print_attribute_set_for_value loopVar="" objVar=assign.assignee attrInDataObj=attrInDataModel value=attr.value!"" indent=indent />      
-<#--  ${""?left_pad(indent)}${java.nameVariable(assign.assignee)}.${modelbase4java.name_setter(attrInDataModel)}(null);       -->
+<@print_attribute_set_for_value loopVar="" objVar=java.nameVariable(assign.assignee.name) attrInDataObj=attrInDataModel value=attr.value!"" indent=indent />      
     </#list>
-${""?left_pad(indent)}${java.nameType(origObjName)}Query.setDefaultValues(${java.nameVariable(assign.assignee)}, true);
-${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameType(origObjName)}(${java.nameVariable(assign.assignee)});  
+${""?left_pad(indent)}${java.nameType(origObjName)}Query.setDefaultValues(${java.nameVariable(assign.assignee.name)}, true);
+${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameType(origObjName)}(${java.nameVariable(assign.assignee.name)});  
   </#if>
 </#macro>
 
@@ -1169,10 +1168,10 @@ ${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameTy
 <#-- 是否需要从可计算的属性中，衍生出其他集合属性 (保留原有的 TODO) -->
 <#-- 条件判断的元变成极其复杂，需要仔细考虑                      -->
 ${""?left_pad(indent)}// 处理数组对象赋值: 从 ${sourceVarName} 转换列表
-${""?left_pad(indent)}List<${java.nameType(arrayValDataObj.name)}Query> ${java.nameVariable(assign.assignee)} = new ArrayList<>();  
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = new ArrayList<>();  
   <#if arrayValObj.getLabelledData("tabular_array")?? && 
        arrayValObj.getLabelledData("tabular_array").hasMoreArrays()>   
-    <#local tabularArray = arrayValObj.getLabelledData("tabular_array")>
+    <#local tabularArray = arrayValObj.getLabelledData("tabular_array")><#-- 原始Map列表处理 -->
     <#local leftObj = tabularArray.mainObject>
     <#local leftVar = tabularArray.mainVariable>
     <#local compoundConditionLength = tabularArray.compoundConditions?size>
@@ -1230,7 +1229,7 @@ ${""?left_pad(indent)}    },
 ${""?left_pad(indent)}for (Map<String,Object> row : ${java.nameVariable(sourceVarName)}JoinedResult) {
 ${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query item = new ${java.nameType(arrayValDataObj.name)}Query();
 <@print_map_object_copy sourceObj=model.findObjectByName(varComponentType) sourceVarName="row" targetObj=arrayValDataObj targetVarName="item" indent=indent+2 />
-  <#else>
+  <#else><#-- 明确对象列表处理 -->
 ${""?left_pad(indent)}for (${java.nameType(varComponentType)}Query row : ${java.nameVariable(sourceVarName)}) {
 ${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query item = new ${java.nameType(arrayValDataObj.name)}Query();
 <@print_object_object_copy sourceObj=model.findObjectByName(varComponentType) sourceVarName="row" targetObj=arrayValDataObj targetVarName="item" indent=indent+2 />
@@ -1250,7 +1249,7 @@ ${""?left_pad(indent)}  item.set${java.nameType(modelbase.get_attribute_sql_name
   </#list>
 ${""?left_pad(indent)}  ${java.nameType(arrayValDataObj.name)}Query.setDefaultValues(item, true);  
 ${""?left_pad(indent)}  ${java.nameVariable(arrayValDataObj.name)}Service.save${java.nameType(arrayValDataObj.name)}(item);    
-${""?left_pad(indent)}  ${java.nameVariable(assign.assignee)}.add(item);
+${""?left_pad(indent)}  ${java.nameVariable(assign.assignee.name)}.add(item);
 ${""?left_pad(indent)}}  
   <#-- 唯一性/引用查找元数据准备 (逻辑似乎未完结) -->
   <#local arrVal = assign.value.arrayValue>
@@ -1291,18 +1290,17 @@ ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_n
   <#elseif value.boolean??>
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${value.boolean});
   <#elseif value.variable??>
-    <#local strs = value.variable?split(".")>
-    <#local varObj = usecase.getVariable(strs[0])>
+    <#local varObj = usecase.getVariable(value.variable.name)>
     <#if varObj.componentType??>
       <#local compObj = varObj.componentType>
     <#else>
       <#local compObj = varObj.type>
     </#if> 
-    <#if strs?size == 1>
-${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${java.nameVariable(strs[0])});          
+    <#if !value.attributeValue??><#-- 变量不是对象，或者没有显示声明属性作为值 -->
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${java.nameVariable(value.variable.name)});          
       <#return>
     </#if>
-    <#local valueAttrInCompObj = compObj.getAttribute(strs[1])>
+    <#local valueAttrInCompObj = compObj.getAttribute(value.attributeValue.name)>
     <#if varObj.componentType?? && compObj.name == attrInDataObj.parent.name>
       <#-- 集合对象中的属性，并且是首个对象中的属性，【首对象属性】 -->
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${loopVar}.get${java.nameType(modelbase.get_attribute_sql_name(valueAttrInCompObj))}());
@@ -1317,7 +1315,7 @@ ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_n
       </#if>
     <#else>
       <#-- 非集合对象中的属性 -->
-${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${java.nameVariable(strs[0])}.${modelbase4java.name_getter(valueAttrInCompObj)}());              
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${java.nameVariable(value.variable.name)}.${modelbase4java.name_getter(valueAttrInCompObj)}());              
     </#if>
   <#elseif value.calcExpr??>
     <#-- TODO: 表达式处理，核心中的核心 -->
