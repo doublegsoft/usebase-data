@@ -15,7 +15,19 @@ import <#if namespace??>${namespace}.</#if>${app.name}.dto.payload.*;
 
 @Named
 public class ${java.nameType(usecase.name)}Helper {
-<#list usecase.statements as stmt>
+<#list usecase.invocations as invo>
+
+  <#if invo.returnType??>
+  public ${usebase4java.type_variable(usecase, invo.returnType)} ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${usebase4java.type_variable(usecase, arg.name)} ${java.nameVariable(arg.name)}</#list>) {      
+    return null;
+  }  
+  <#else>
+  public void ${java.nameVariable(invo.method)}(<#list invo.arguments as arg><#if arg?index != 0>,</#if>${usebase4java.type_variable(usecase, arg.name)} ${java.nameVariable(arg.name)}</#list>) {      
+
+  }  
+  </#if>
+</#list> 
+<#--  <#list usecase.statements as stmt>
 
   <#if stmt.operator?ends_with("?|")>
     <#assign cmp = stmt>
@@ -43,5 +55,5 @@ public class ${java.nameType(usecase.name)}Helper {
 
   }  
   </#if>
-</#list>
+</#list>  -->
 }

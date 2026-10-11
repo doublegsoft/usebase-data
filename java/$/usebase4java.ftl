@@ -153,21 +153,11 @@
   <#return origAttrName>
 </#function>  
 
-<#function name_value_access usecase expr>
-  <#local strs = expr?split(".")>
-  <#if strs?size == 1>
-    <#return java.nameVariable(strs[0])>
+<#function name_value_access usecase var>
+  <#if var.attribute??>
+    <#return java.nameVariable(var.name) + ".get" + java.nameType(modelbase.get_attribute_sql_name(var.attribute)) + "()">
   <#else>
-    <#local var = usecase.getVariable(strs[0])>
-    <#local varObj = var.type>
-    <#local attrname = strs[1]>
-    <#if varObj.getAttribute(strs[1])??>
-      <#local attrVar = varObj.getAttribute(strs[1])>
-    <#else>
-      <#local attrname = strs[1]?replace(varObj.name + "_", "")>  
-      <#local attrVar = varObj.getAttribute(strs[1])>
-    </#if>
-    <#return java.nameVariable(strs[0]) + ".get" + java.nameType(modelbase.get_attribute_sql_name(attrVar)) + "()">
+    <#return java.nameVariable(var.name)>
   </#if>
 </#function>
 
@@ -773,11 +763,102 @@ ${""?left_pad(indent)}// 保存后再赋值
       </#if>
     <#elseif assign.value.arrayValue??>
 <@print_assignment_simple_for_array usecase=usecase assign=assign indent=indent />      
+    <#elseif assign.value.number??>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(new BigDecimal("${assign.value.number}"));
+    <#elseif assign.value.string??>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}("${assign.value.string}");
+    <#elseif assign.value.bool??>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(${assign.value.bool});
+    <#elseif assign.value.calcExpr??>
+${""?left_pad(indent)}BigDecimal ${modelbase.get_attribute_sql_name(assign.assignee.attribute)} = <@print_statement_calculation usecase=usecase calcExpr=assign.value.calcExpr indent=0 />;
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(${modelbase.get_attribute_sql_name(assign.assignee.attribute)});
     <#else>
-${""?left_pad(indent)}// ${assign.originalText}      
+${""?left_pad(indent)}// TODO: 需要实现 ${assign.originalText}
     </#if>
   <#else>
 ${""?left_pad(indent)}// 其他赋值操作暂不支持
+  </#if>
+</#macro>
+
+<#--
+ ### 运算符到 BigDecimal 实例方法的映射
+ -->
+<#function get_bigdecimal_method op>
+  <#switch op?trim>
+    <#case "+"><#return "add"><#break>
+    <#case "-"><#return "subtract"><#break>
+    <#case "*"><#return "multiply"><#break>
+    <#case "/"><#return "divide"><#break>
+    <#case "%"><#return "remainder"><#break>
+    <#default><#return op><#break>
+  </#switch>
+</#function>
+
+<#--
+ ### 打印完整的 BigDecimal 计算语句（带缩进）
+ ### @param usecase   业务上下文
+ ### @param calcExpr  CalculationDefinition 对象
+ ### @param indent    缩进空格数
+ -->
+<#macro print_statement_calculation usecase calcExpr indent>
+<#compress>
+${""?left_pad(indent)}<@render_calc_expr calcExpr=calcExpr usecase=usecase />
+</#compress>
+</#macro>
+
+<#--
+ ### 递归渲染 BigDecimal 表达式核心宏
+ ### @param calcExpr CalculationDefinition 节点
+ ### @param usecase  业务上下文
+ -->
+<#macro render_calc_expr calcExpr usecase>
+  <#if !calcExpr??><#return></#if>
+  <#-- 情况 1: 复合计算表达式 (存在 operator) -->
+  <#if calcExpr.operator?? && calcExpr.operator?has_content>
+    <#local method = get_bigdecimal_method(calcExpr.operator)>
+    <#-- 1. 输出左操作数 -->
+    <#if calcExpr.leftOperand??>
+      <@render_calc_expr calcExpr=calcExpr.leftOperand usecase=usecase /><#t>
+    </#if>
+    <#-- 2. 调用 BigDecimal 方法并传入右操作数 -->
+    <#if method == "divide">
+      <#-- 除法特别处理：设置保留 4 位小数，四舍五入 (可按需调整精度) -->
+      .divide(<@render_calc_expr calcExpr=calcExpr.rightOperand usecase=usecase />, 4, java.math.RoundingMode.HALF_UP)<#t>
+    <#else>
+      .${method}(<@render_calc_expr calcExpr=calcExpr.rightOperand usecase=usecase />)<#t>
+    </#if>
+  <#-- 情况 2: 单值/叶子节点 -->
+  <#elseif calcExpr.value??>
+    <@render_calc_value value=calcExpr.value usecase=usecase /><#t>
+  <#-- 情况 3: 兜底处理原始文本 -->
+  <#elseif calcExpr.originalText?? && calcExpr.originalText?has_content>
+    ${calcExpr.originalText}<#t>
+  </#if>
+</#macro>
+
+<#--
+ ### 渲染操作数的值 (ValueDefinition)
+ ### 自动确保值为合法的 BigDecimal 表达式
+ -->
+<#macro render_calc_value value usecase>
+  <#if !value??><#return></#if>
+  <#-- 1. 如果包含嵌套的子计算表达式，向下递归 -->
+  <#if value.calcExpr??>
+    <@render_calc_expr calcExpr=value.calcExpr usecase=usecase /><#t>
+  <#-- 2. 常量数字字面量转换 (如 0, 100, 0.5) -->
+  <#elseif value.number?? && value.number?matches("^-?\\d+(\\.\\d+)?$")>
+    <#if value.number?string == "0">
+      java.math.BigDecimal.ZERO<#t>
+    <#elseif value.number?string == "1">
+      java.math.BigDecimal.ONE<#t>
+    <#else>
+      new java.math.BigDecimal("${value.number}")<#t>
+    </#if>
+  <#-- 3. 普通变量/属性 (如果本身就是 BigDecimal 变量直接输出，否则建议包装) -->
+  <#elseif value.attributeValue??>
+    ${value.attributeValue.name}<#t>
+  <#else>
+    ${value}<#t>
   </#if>
 </#macro>
 
@@ -816,6 +897,8 @@ ${""?left_pad(indent)}if (!${cmp.comparand}.equals(${usebase.name_method_return(
 ${""?left_pad(indent)}  throw new ServiceException(400, "${invo.error}");
 ${""?left_pad(indent)}}      
       </#if>
+    <#else>
+${""?left_pad(indent)}// ${stmt.originalText}
     </#if>
   <#elseif cmp.value??>
     <#if cmp.andComparisons?size == 0>
@@ -839,9 +922,11 @@ ${""?left_pad(indent)}}
 <#macro print_single_comparison cmp usecase indent conj="">
   <#compress>
     <#if cmp.value.keyword?? && cmp.value.keyword == "null">
-${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)} ${cmp.comparator} null
+${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand.name)} ${cmp.comparator} null
     <#elseif cmp.value.keyword?? && cmp.value.keyword == "now">
-${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand)}.equals(new java.sql.Timestamp(System.currentTimeMillis())) 
+${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand.name)}.equals(new java.sql.Timestamp(System.currentTimeMillis())) 
+    <#elseif cmp.value.string??>
+${""?left_pad(indent)}${conj}${name_value_access(usecase, cmp.comparand)}.equals("${cmp.value.string}") 
     <#elseif cmp.value.variable??>
        <#if cmp.comparator == "==">
 ${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)})     
@@ -1004,15 +1089,11 @@ ${""?left_pad(indent)}}
 
 <#macro print_statement_loop usecase stmt indent>
   <#local loop = stmt>
-${""?left_pad(indent)}for (${java.nameType(loop.componentType.name)}Query ${java.nameVariable(loop.itemVar)} : ${java.nameVariable(loop.arrayVar)}) {
+${""?left_pad(indent)}for (${java.nameType(loop.componentType.name)}Query ${java.nameVariable(loop.itemVar.name)} : ${java.nameVariable(loop.arrayVar.name)}) {
   <#list loop.statements as innerStmt>
 <@print_statement usecase=usecase stmt=innerStmt indent=indent+2 />
   </#list>
 ${""?left_pad(indent)}}
-</#macro>
-
-<#macro print_statement_if usecase stmt indent>
-${""?left_pad(indent)}// hello, this is if-statement
 </#macro>
 
 <#macro print_statements_for_value_array value indent>
@@ -1130,7 +1211,7 @@ ${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = new ${java.na
 <@print_attribute_set_for_value loopVar="" objVar=java.nameVariable(assign.assignee.name) attrInDataObj=attrInDataModel value=attr.value!"" indent=indent />      
     </#list>
 ${""?left_pad(indent)}${java.nameType(origObjName)}Query.setDefaultValues(${java.nameVariable(assign.assignee.name)}, true);
-${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameType(origObjName)}(${java.nameVariable(assign.assignee.name)});  
+<#--  ${""?left_pad(indent)}${java.nameVariable(origObjName)}Service.save${java.nameType(origObjName)}(${java.nameVariable(assign.assignee.name)});    -->
   </#if>
 </#macro>
 
