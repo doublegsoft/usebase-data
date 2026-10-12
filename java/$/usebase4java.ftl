@@ -181,6 +181,43 @@
 
 <#-- 
  ### =========================================================================================
+ ### Function: get_number_value
+ ### 
+ ### 描述 (Description):
+ ### 该函数用于在代码生成场景中，根据传入数字变量的底层 Java 真实类型，
+ ### 智能转换为符合 Java 语法的字面量或对象初始化代码片段。
+ ### 解决 FreeMarker 默认将所有数字统一包装为 TemplateNumberModel 而丢失原始 Java 类型的问题。
+ ###
+ ### 核心逻辑 (Core Logic):
+ ### 1. 底层类型反射识别 (Type Introspection):
+ ###    利用 FreeMarker 的 `?api` 内置机制穿透模板包装层，
+ ###    直接获取底层 Java 对象的实际类名（getClass().getName()）。
+ ###
+ ### 2. 高精度数处理 (BigDecimal Instantiation):
+ ###    若检测到类型为 `java.math.BigDecimal`，则生成标准的字符串构造表达式：
+ ###    `new BigDecimal("...")`，严格避免直接传 double 导致的浮点数精度丢失问题。
+ ###
+ ### 3. 整型与常规数处理 (Integer / Fallback Output):
+ ###    若检测到类型为 `java.lang.Integer` 或其他常规数字类型，
+ ###    直接以原生字面量形式输出（如 100），保持生成的 Java 代码整洁高效。
+ ###
+ ### 参数 (Parameters):
+ ### @param num - 待分析与转换的目标数字对象 (Number/BigDecimal/Integer)
+ ###
+ ### 返回 (Returns):
+ ### @return 生成的 Java 代码表达式字符串 (String)
+ ### =========================================================================================
+ -->
+<#function get_number_value value>
+  <#if value.bigDecimal>
+    <#return "new BigDecimal(\"" + value.number?c + "\")">
+  <#else>
+    <#return value.number?c>
+  </#if>
+</#function>
+
+<#-- 
+ ### =========================================================================================
  ### Macro: print_body_find
  ### 
  ### 描述 (Description):
@@ -764,7 +801,11 @@ ${""?left_pad(indent)}// 保存后再赋值
     <#elseif assign.value.arrayValue??>
 <@print_assignment_simple_for_array usecase=usecase assign=assign indent=indent />      
     <#elseif assign.value.number??>
-${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(new BigDecimal("${assign.value.number}"));
+      <#if assign.assignee.attribute??>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(${get_number_value(assign.value)});
+      <#else>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = ${get_number_value(assign.value)};
+      </#if>
     <#elseif assign.value.string??>
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}("${assign.value.string}");
     <#elseif assign.value.bool??>
@@ -925,8 +966,6 @@ ${""?left_pad(indent)}}
 ${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand.name)} ${cmp.comparator} null
     <#elseif cmp.value.keyword?? && cmp.value.keyword == "now">
 ${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand.name)}.equals(new java.sql.Timestamp(System.currentTimeMillis())) 
-    <#elseif cmp.value.string??>
-${""?left_pad(indent)}${conj}${name_value_access(usecase, cmp.comparand)}.equals("${cmp.value.string}") 
     <#elseif cmp.value.variable??>
        <#if cmp.comparator == "==">
 ${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)})     
@@ -934,7 +973,7 @@ ${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${
 ${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && !${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)})             
         </#if>
     <#elseif cmp.value.number??> 
-${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.compareTo(new BigDecimal("${cmp.value.number}")) ${cmp.comparator} 0      
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.compareTo(${get_number_value(cmp.value)}) ${cmp.comparator} 0      
     <#elseif cmp.value.string??> 
       <#if cmp.comparator == "==">
 ${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.equals("${cmp.value.string}")      
@@ -1184,15 +1223,20 @@ ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4jav
       <#elseif label.value == "true" || label.value == "false">
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${label.value});      
       <#elseif !label.type??>
-${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${java.nameVariable(label.value)});   
+        <#local valueVar = usecase.getVariable(label.value)>
+        <#if label.attrname != "">
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${java.nameVariable(label.value)}.${modelbase4java.name_getter(uniqueAttr)}());
+        <#else>
+${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${java.nameVariable(label.value)});
+        </#if>
       <#else>      
 ${""?left_pad(indent)}unique${java.nameType(uniqueObjName)}Query.${modelbase4java.name_setter(uniqueAttr)}(${modelbase.get_attribute_sql_name(uniqueAttr)});
       </#if>
     </#list>
-${""?left_pad(indent)}${java.nameVariable(assign.assignee)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = ${java.nameVariable(uniqueObjName)}Service.get${java.nameType(uniqueObjName)}(unique${java.nameType(uniqueObjName)}Query); 
     <#if objVal.isLabelled("required")>    
 ${""?left_pad(indent)}// 校验对象是否存在
-${""?left_pad(indent)}if (${java.nameVariable(assign.assignee)} == null) {
+${""?left_pad(indent)}if (${java.nameVariable(assign.assignee.name)} == null) {
 ${""?left_pad(indent)}  throw new ServiceException(404, "${objVal.getLabelledOption("required", "message")}");
 ${""?left_pad(indent)}}
     </#if>   
@@ -1367,7 +1411,7 @@ ${""?left_pad(indent)}}
   <#if value.string??>
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}("${value.string}");
   <#elseif value.number??>
-${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(new BigDecimal("${value.number}"));
+${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${get_number_value(value)});
   <#elseif value.boolean??>
 ${""?left_pad(indent)}${objVar}.set${java.nameType(modelbase.get_attribute_sql_name(attrInDataObj))}(${value.boolean});
   <#elseif value.variable??>
@@ -1415,7 +1459,7 @@ ${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameT
           <#if operandUnique.attrtype == "string">
 ${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(operandUnique.attrname)}("${operandUnique.value}");
           <#elseif operandUnique.attrtype == "number">
-${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(operandUnique.attrname)}(new BigDecimal("${operandUnique.value}"));
+${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(operandUnique.attrname)}(${get_number_value(operandUnique.value)});
           <#elseif operandUnique.attrtype == "boolean">
 ${""?left_pad(indent)}${java.nameVariable(originalObjName)}Query.set${java.nameType(operandUnique.attrname)}(${operandUnique.value});
           </#if>
