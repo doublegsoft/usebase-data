@@ -800,21 +800,43 @@ ${""?left_pad(indent)}// 保存后再赋值
       </#if>
     <#elseif assign.value.arrayValue??>
 <@print_assignment_simple_for_array usecase=usecase assign=assign indent=indent />      
-    <#elseif assign.value.number??>
+    <#elseif assign.value.number??><#-- 数值 -->
       <#if assign.assignee.attribute??>
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(${get_number_value(assign.value)});
       <#else>
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = ${get_number_value(assign.value)};
       </#if>
-    <#elseif assign.value.string??>
-${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}("${assign.value.string}");
-    <#elseif assign.value.bool??>
+    <#elseif assign.value.string??><#-- 字符串 -->
+      <#if assign.assignee.attribute??>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}("${assign.value.string}");      
+      <#else>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = "${assign.value.string}";
+      </#if>
+    <#elseif assign.value.bool??><#-- 布尔值 -->
+      <#if assign.assignee.attribute??>
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(${assign.value.bool});
-    <#elseif assign.value.calcExpr??>
-${""?left_pad(indent)}BigDecimal ${modelbase.get_attribute_sql_name(assign.assignee.attribute)} = <@print_statement_calculation usecase=usecase calcExpr=assign.value.calcExpr indent=0 />;
-${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(${modelbase.get_attribute_sql_name(assign.assignee.attribute)});
-    <#else>
-${""?left_pad(indent)}// TODO: 需要实现 ${assign.originalText}
+      <#else>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = ${assign.value.bool};
+      </#if>
+    <#elseif assign.value.calcExpr??><#-- 计算公式 -->
+${""?left_pad(indent)}BigDecimal ${java.nameVariable(assign.assignee.name)}Val = <@print_statement_calculation usecase=usecase calcExpr=assign.value.calcExpr indent=0 />;
+      <#if assign.assignee.attribute??>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(${java.nameVariable(assign.assignee.name)}Val);
+      <#else>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = ${java.nameVariable(assign.assignee.name)}Val;
+      </#if>
+    <#elseif assign.value.attributeValue??><#-- 属性值 -->
+      <#if assign.assignee.attribute??>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(${java.nameVariable(assign.value.variable.name)}.${modelbase4java.name_getter(assign.value.attributeValue)}());      
+      <#else>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = ${java.nameVariable(assign.value.variable.name)}.${modelbase4java.name_getter(assign.value.attributeValue)}();
+      </#if>
+    <#elseif assign.value.variable??>
+      <#if assign.assignee.attribute??>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(${java.nameVariable(assign.value.variable.name)});      
+      <#else>
+${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = ${java.nameVariable(assign.value.variable.name)};
+      </#if>    
     </#if>
   <#else>
 ${""?left_pad(indent)}// 其他赋值操作暂不支持
@@ -870,10 +892,18 @@ ${""?left_pad(indent)}<@render_calc_expr calcExpr=calcExpr usecase=usecase />
     </#if>
   <#-- 情况 2: 单值/叶子节点 -->
   <#elseif calcExpr.value??>
-    <@render_calc_value value=calcExpr.value usecase=usecase /><#t>
-  <#-- 情况 3: 兜底处理原始文本 -->
-  <#elseif calcExpr.originalText?? && calcExpr.originalText?has_content>
-    ${calcExpr.originalText}<#t>
+    <#local value = calcExpr.value>
+    <#if value.number??>
+      <#if value.bigDecimal>
+        new BigDecimal("${value.number}")<#t>
+      <#else>
+        ${value.number}<#t>
+      </#if>
+    <#elseif value.attributeValue??><#-- 这个有值，就必然variable有值，所以说放前面 -->
+      ${java.nameVariable(value.variable.name)}.${modelbase4java.name_getter(value.attributeValue)}()<#t>
+    <#elseif value.variable??>
+      ${java.nameVariable(value.variable.name)}<#t>
+    </#if>
   </#if>
 </#macro>
 
@@ -942,51 +972,60 @@ ${""?left_pad(indent)}}
 ${""?left_pad(indent)}// ${stmt.originalText}
     </#if>
   <#elseif cmp.value??>
-    <#if cmp.andComparisons?size == 0>
 ${""?left_pad(indent)}if (<@print_single_comparison cmp=cmp usecase=usecase indent=0 />) {
-    <#else>
-${""?left_pad(indent)}if (<@print_single_comparison cmp=cmp usecase=usecase indent=0 />
-    <#list cmp.andComparisons as andCmp>
-<@print_single_comparison cmp=andCmp usecase=usecase indent=indent+4 conj="&& " /><#if andCmp?index == cmp.andComparisons?size - 1>) {</#if>
-    </#list> 
-    </#if>
     <#if cmp.statements?size == 0 && cmp.error??>
 ${""?left_pad(indent)}  throw new ServiceException(400, "${cmp.error}");    
     </#if>
-    <#list stmt.statements as innerStmt>
-<@print_statement usecase=usecase stmt=innerStmt indent=indent+2 />
-    </#list>
-${""?left_pad(indent)}}
+  <#elseif cmp.andComparisons?size != 0>
+${""?left_pad(indent)}if ((<@print_single_comparison cmp=cmp.andComparisons[0] usecase=usecase indent=0 />) &&
+    <#list cmp.andComparisons as andCmp>
+      <#if andCmp?index == 0><#continue></#if>
+${""?left_pad(indent)}    (<@print_single_comparison cmp=andCmp usecase=usecase indent=indent+4 conj="&& " />)<#if andCmp?index == cmp.andComparisons?size - 1>) {</#if>
+    </#list> 
   </#if>
+  <#list stmt.statements as innerStmt>
+<@print_statement usecase=usecase stmt=innerStmt indent=indent+2 />
+  </#list>
+${""?left_pad(indent)}}
 </#macro>
 
 <#macro print_single_comparison cmp usecase indent conj="">
   <#compress>
-    <#if cmp.value.keyword?? && cmp.value.keyword == "null">
+  <#if cmp.value.keyword?? && cmp.value.keyword == "null">
 ${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand.name)} ${cmp.comparator} null
-    <#elseif cmp.value.keyword?? && cmp.value.keyword == "now">
+  <#elseif cmp.value.keyword?? && cmp.value.keyword == "now">
 ${""?left_pad(indent)}${conj}${java.nameVariable(cmp.comparand.name)}.equals(new java.sql.Timestamp(System.currentTimeMillis())) 
-    <#elseif cmp.value.variable??>
-       <#if cmp.comparator == "==">
-${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)})     
-        <#elseif cmp.comparator == "!=">
-${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && !${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)})             
-        </#if>
-    <#elseif cmp.value.number??> 
+  <#elseif cmp.value.number??> 
 ${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.compareTo(${get_number_value(cmp.value)}) ${cmp.comparator} 0      
-    <#elseif cmp.value.string??> 
-      <#if cmp.comparator == "==">
+  <#elseif cmp.value.string??> 
+    <#if cmp.comparator == "==">
 ${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.equals("${cmp.value.string}")      
-      <#elseif cmp.comparator == "!=">
+    <#elseif cmp.comparator == "!=">
 ${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && !${name_value_access(usecase, cmp.comparand)}.equals("${cmp.value.string}")
-      </#if>
-    <#elseif cmp.value.bool??> 
-      <#if cmp.comparator == "==">
-${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} == ${cmp.value.bool}
-      <#elseif cmp.comparator == "!=">
-${""?left_pad(indent)}!${name_value_access(usecase, cmp.comparand)} != ${cmp.value.bool}
-      </#if>  
     </#if>
+  <#elseif cmp.value.bool??> 
+    <#if cmp.comparator == "==">
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} == ${cmp.value.bool}
+    <#elseif cmp.comparator == "!=">
+${""?left_pad(indent)}!${name_value_access(usecase, cmp.comparand)} != ${cmp.value.bool}
+    </#if>  
+  <#elseif cmp.value.attributeValue??><#-- 属性作为值（必然存在对象变量） -->
+    <#if cmp.comparator == "==">
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)}.${modelbase4java.name_getter(cmp.value.attributeValue)}())    
+    <#elseif cmp.comparator == "!=">
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && !${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)}.${modelbase4java.name_getter(cmp.value.attributeValue)}()) 
+    <#else>
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.compareTo(${name_value_access(usecase, cmp.value.variable)}.${modelbase4java.name_getter(cmp.value.attributeValue)}()) ${cmp.comparator} 0    
+    </#if>
+  <#elseif cmp.value.variable??>
+    <#if cmp.comparator == "==">
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)})     
+    <#elseif cmp.comparator == "!=">
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && !${name_value_access(usecase, cmp.comparand)}.equals(${name_value_access(usecase, cmp.value.variable)})             
+    <#else>
+${""?left_pad(indent)}${name_value_access(usecase, cmp.comparand)} != null && ${name_value_access(usecase, cmp.comparand)}.compareTo(${name_value_access(usecase, cmp.value.variable)}) ${cmp.comparator} 0    
+    </#if>
+  </#if>
   </#compress>
 </#macro>
 

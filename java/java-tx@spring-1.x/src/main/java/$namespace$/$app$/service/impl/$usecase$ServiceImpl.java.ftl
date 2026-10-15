@@ -112,7 +112,13 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
     <#if attr.constraint.defaultValue??>
     ${java.nameVariable(attr.name)} = params.get${java.nameType(attr.name)}();
     if (${java.nameVariable(attr.name)} == null) {
+      <#if attr.type.name == "number">
+      ${java.nameVariable(attr.name)} = new BigDecimal("${attr.constraint.defaultValue}");
+      <#elseif attr.type.name == "integer" || attr.type.name == "int">
+      ${java.nameVariable(attr.name)} = ${attr.constraint.defaultValue};
+      <#else>
       ${java.nameVariable(attr.name)} = "${attr.constraint.defaultValue}";
+      </#if>
     }
     <#else>
       <#if attr.type.collection>
