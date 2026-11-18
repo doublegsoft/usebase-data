@@ -24,6 +24,8 @@ import java.math.BigDecimal;
 
 import jakarta.inject.Named;  
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import jakarta.transaction.Transactional.TxType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +46,7 @@ public class ${java.nameType(usecase.name)}ServiceImpl implements ${java.nameTyp
 <#----------------------->
 <@usebase4java.print_services_for_usecase usecase=usecase indent=2 />
 
+@Transactional(rollbackOn = Exception.class)
 <#if isArray == "true">
   public List<${java.nameType(usecase.name)}Result> ${java.nameVariable(usecase.name)}(${java.nameType(usecase.name)}Params params) throws ServiceException {
 <#elseif usecase.returnedObject??>

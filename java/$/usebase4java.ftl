@@ -761,7 +761,7 @@ ${""?left_pad(indent)}}
 ${""?left_pad(indent)}${java.nameVariable(update.variable)}.${modelbase4java.name_setter(attr)}(${usebase4java.get_attribute_default_value(usecase, attr)});    
       </#if>
     </#list>
-${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.update${java.nameType(updateObjName)}(${java.nameVariable(updateObjName)});
+${""?left_pad(indent)}${java.nameVariable(updateObjName)}Service.save${java.nameType(updateObjName)}(${java.nameVariable(updateObjName)});
   </#if>  
 </#macro>
 
@@ -819,7 +819,13 @@ ${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4jav
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)} = ${assign.value.bool};
       </#if>
     <#elseif assign.value.calcExpr??><#-- 计算公式 -->
-${""?left_pad(indent)}BigDecimal ${java.nameVariable(assign.assignee.name)}Val = <@print_statement_calculation usecase=usecase calcExpr=assign.value.calcExpr indent=0 />;
+      <#if assign.assignee.type.name == "number">
+${""?left_pad(indent)}BigDecimal ${java.nameVariable(assign.assignee.name)}Val = <@print_statement_calculation usecase=usecase calcExpr=assign.value.calcExpr expectedType="BigDecimal" indent=0 />;
+      <#elseif assign.assignee.type.name == "long">
+${""?left_pad(indent)}Long ${java.nameVariable(assign.assignee.name)}Val = <@print_statement_calculation usecase=usecase calcExpr=assign.value.calcExpr expectedType="Long" indent=0 />;
+      <#else>
+${""?left_pad(indent)}Integer ${java.nameVariable(assign.assignee.name)}Val = <@print_statement_calculation usecase=usecase calcExpr=assign.value.calcExpr expectedType="Integer" indent=0 />;
+      </#if>
       <#if assign.assignee.attribute??>
 ${""?left_pad(indent)}${java.nameVariable(assign.assignee.name)}.${modelbase4java.name_setter(assign.assignee.attribute)}(${java.nameVariable(assign.assignee.name)}Val);
       <#else>
@@ -863,9 +869,9 @@ ${""?left_pad(indent)}// 其他赋值操作暂不支持
  ### @param calcExpr  CalculationDefinition 对象
  ### @param indent    缩进空格数
  -->
-<#macro print_statement_calculation usecase calcExpr indent>
+<#macro print_statement_calculation usecase calcExpr expectedType indent>
 <#compress>
-${""?left_pad(indent)}<@render_calc_expr calcExpr=calcExpr usecase=usecase />
+${""?left_pad(indent)}<@render_calc_expr calcExpr=calcExpr usecase=usecase expectedType=expectedType />
 </#compress>
 </#macro>
 
@@ -874,35 +880,131 @@ ${""?left_pad(indent)}<@render_calc_expr calcExpr=calcExpr usecase=usecase />
  ### @param calcExpr CalculationDefinition 节点
  ### @param usecase  业务上下文
  -->
-<#macro render_calc_expr calcExpr usecase>
+<#-- ===================================================================== -->
+<#-- 1. 辅助函数：推断表达式的最终 Java 类型 ('BigDecimal' | 'Long' | 'Integer') -->
+<#-- 规则：BigDecimal > Long > Integer                                     -->
+<#-- ===================================================================== -->
+<#function get_expr_type expr>
+  <#if !expr??><#return "Integer"></#if>
+  <#if expr.operator?? && expr.operator?has_content>
+    <#local leftType = expr.leftOperand?? ?then(get_expr_type(expr.leftOperand), "Integer")>
+    <#local rightType = expr.rightOperand?? ?then(get_expr_type(expr.rightOperand), "Integer")>
+    <#if leftType == "BigDecimal" || rightType == "BigDecimal">
+      <#return "BigDecimal">
+    <#elseif leftType == "Long" || rightType == "Long">
+      <#return "Long">
+    <#else>
+      <#return "Integer">
+    </#if>
+  <#elseif expr.value??>
+    <#return get_leaf_type(expr.value)>
+  </#if>
+  <#return "Integer">
+</#function>
+
+<#-- 辅助函数：获取叶子节点类型（请按你 AST 的实际属性名微调此处） -->
+<#function get_leaf_type value>
+  <#if value.number??>
+    <#if value.bigDecimal?? && value.bigDecimal>
+      <#return "BigDecimal">
+    <#elseif (value.long?? && value.long) || (value.number?string?contains("L"))>
+      <#return "Long">
+    <#else>
+      <#return "Integer">
+    </#if>
+  <#elseif value.attributeValue??>
+    <#-- 【注意】这里请替换为你实际获取属性类型的方法/字段，例如 value.attributeValue.type.name -->
+    <#local attrType = (value.attributeValue.type!"")?string?lower_case>
+    <#if attrType == "number" || attrType == "decimal" || attrType == "bigdecimal">
+      <#return "BigDecimal">
+    <#elseif attrType == "long" || attrType == "id">
+      <#return "Long">
+    <#else>
+      <#return "Integer">
+    </#if>
+  <#elseif value.variable??>
+    <#-- 【注意】这里请替换为你实际获取变量类型的方法/字段 -->
+    <#local varType = (value.variable.type!"")?string?lower_case>
+    <#if varType == "number" || varType == "decimal" || varType == "bigdecimal">
+      <#return "BigDecimal">
+    <#elseif varType == "long" || varType == "id">
+      <#return "Long">
+    <#else>
+      <#return "Integer">
+    </#if>
+  </#if>
+  <#return "Integer">
+</#function>
+
+<#-- 辅助函数：原生运算符映射 (适配常见符号或枚举名) -->
+<#function get_native_operator op>
+  <#local opStr = op?string?upper_case>
+  <#switch opStr>
+    <#case "+"><#case "ADD"><#case "PLUS"><#return "+">
+    <#case "-"><#case "SUB"><#case "SUBTRACT"><#case "MINUS"><#return "-">
+    <#case "*"><#case "MUL"><#case "MULTIPLY"><#return "*">
+    <#case "/"><#case "DIV"><#case "DIVIDE"><#return "/">
+    <#case "%"><#case "MOD"><#return "%">
+    <#default><#return op>
+  </#switch>
+</#function>
+
+<#-- ===================================================================== -->
+<#-- 2. 主宏：渲染计算表达式（支持 BigDecimal / Long / Integer 及混算）      -->
+<#-- ===================================================================== -->
+<#macro render_calc_expr calcExpr usecase expectedType="">
   <#if !calcExpr??><#return></#if>
+  <#--  <#local actualType = get_expr_type(calcExpr)>  -->
+  <#local actualType = expectedType>
+  <#local targetType = expectedType?has_content ?then(expectedType, actualType)>
   <#-- 情况 1: 复合计算表达式 (存在 operator) -->
   <#if calcExpr.operator?? && calcExpr.operator?has_content>
-    <#local method = get_bigdecimal_method(calcExpr.operator)>
-    <#-- 1. 输出左操作数 -->
-    <#if calcExpr.leftOperand??>
-      <@render_calc_expr calcExpr=calcExpr.leftOperand usecase=usecase /><#t>
-    </#if>
-    <#-- 2. 调用 BigDecimal 方法并传入右操作数 -->
-    <#if method == "divide">
-      <#-- 除法特别处理：设置保留 4 位小数，四舍五入 (可按需调整精度) -->
-      .divide(<@render_calc_expr calcExpr=calcExpr.rightOperand usecase=usecase />, 4, java.math.RoundingMode.HALF_UP)<#t>
+    <#if actualType == "BigDecimal">
+      <#-- BigDecimal 运算分支 -->
+      <#local method = get_bigdecimal_method(calcExpr.operator)>
+      <#if calcExpr.leftOperand??>
+        <@render_calc_expr calcExpr=calcExpr.leftOperand usecase=usecase expectedType="BigDecimal" /><#t>
+      </#if>
+      <#if method == "divide">
+        .divide(<@render_calc_expr calcExpr=calcExpr.rightOperand usecase=usecase expectedType="BigDecimal" />, 4, java.math.RoundingMode.HALF_UP)<#t>
+      <#else>
+        .${method}(<@render_calc_expr calcExpr=calcExpr.rightOperand usecase=usecase expectedType="BigDecimal" />)<#t>
+      </#if>
     <#else>
-      .${method}(<@render_calc_expr calcExpr=calcExpr.rightOperand usecase=usecase />)<#t>
+      <#-- Long / Integer 原生算术分支：外层加括号保证运算优先级 -->
+      <#local nativeOp = get_native_operator(calcExpr.operator)>
+      <#local childExpected = (targetType == "BigDecimal") ?then(actualType, targetType)>
+      <#if targetType == "BigDecimal">BigDecimal.valueOf(</#if><#t>
+      (<@render_calc_expr calcExpr=calcExpr.leftOperand usecase=usecase expectedType=childExpected /> ${nativeOp} <@render_calc_expr calcExpr=calcExpr.rightOperand usecase=usecase expectedType=childExpected />)<#t>
+      <#if targetType == "BigDecimal">)</#if><#t>
     </#if>
   <#-- 情况 2: 单值/叶子节点 -->
   <#elseif calcExpr.value??>
     <#local value = calcExpr.value>
     <#if value.number??>
-      <#if value.bigDecimal>
-        new BigDecimal("${value.number}")<#t>
+      <#if targetType == "BigDecimal">
+        new BigDecimal("${value.number?string?replace('L', '')}")<#t>
+      <#elseif targetType == "Long">
+        <#local numStr = value.number?string>
+        ${numStr?ends_with("L") ?then(numStr, numStr + "L")}<#t>
       <#else>
         ${value.number}<#t>
       </#if>
-    <#elseif value.attributeValue??><#-- 这个有值，就必然variable有值，所以说放前面 -->
-      ${java.nameVariable(value.variable.name)}.${modelbase4java.name_getter(value.attributeValue)}()<#t>
-    <#elseif value.variable??>
-      ${java.nameVariable(value.variable.name)}<#t>
+    <#else>
+      <#-- 变量或属性取值 -->
+      <#local exprCode>
+        <#if value.attributeValue??>
+          ${java.nameVariable(value.variable.name)}.${modelbase4java.name_getter(value.attributeValue)}()<#t>
+        <#elseif value.variable??>
+          ${java.nameVariable(value.variable.name)}<#t>
+        </#if>
+      </#local>
+      <#-- 如果期望 BigDecimal 而当前叶子是 Long/Integer，自动套 BigDecimal.valueOf(...) -->
+      <#if targetType == "BigDecimal" && actualType != "BigDecimal">
+        BigDecimal.valueOf(${exprCode})<#t>
+      <#else>
+        ${exprCode}<#t>
+      </#if>
     </#if>
   </#if>
 </#macro>
@@ -1089,8 +1191,10 @@ ${""?left_pad(indent)}retVal.copyFrom${type_variable(usecase, varname)?replace("
     </#if>
     <#if varObj.type.collection>
 ${""?left_pad(indent)}retVal.set${java.nameType(inflector.pluralize(varObj.type.componentType.name))}(${java.nameVariable(varname)});    
-    <#else>
+    <#elseif varObj.type.custom>
 ${""?left_pad(indent)}retVal.copyFrom${java.nameType(varObj.type.name)}(${java.nameVariable(varname)});
+    <#elseif varObj.type.primitive>
+<#--  ${""?left_pad(indent)}retVal.copyFrom${java.nameType(varObj.name)}(${java.nameVariable(varname)});  -->
     </#if>
   </#list>
 </#macro>
